@@ -3,7 +3,6 @@ import torch
 from transformers import BarkModel, BarkProcessor
 import scipy.io.wavfile as wavfile
 import numpy as np
-import io
 
 # Set page configuration
 st.set_page_config(
@@ -96,29 +95,12 @@ if st.button("🎵 Generate Speech", type="primary", use_container_width=True):
         except Exception as e:
             st.error(f"Error generating speech: {str(e)}")
 
-# Display audio player and download button if audio exists
+# Display audio player if audio exists
 if st.session_state.audio_data is not None:
     st.markdown("### 🔊 Generated Audio")
     
     # Display audio player
     st.audio(st.session_state.audio_data, sample_rate=st.session_state.sampling_rate)
-    
-    # Create WAV file for download
-    st.markdown("### 💾 Download Audio")
-    
-    # Convert to WAV format in memory
-    wav_buffer = io.BytesIO()
-    wavfile.write(wav_buffer, st.session_state.sampling_rate, st.session_state.audio_data)
-    wav_buffer.seek(0)
-    
-    # Download button
-    st.download_button(
-        label="⬇️ Download as WAV",
-        data=wav_buffer,
-        file_name="generated_speech.wav",
-        mime="audio/wav",
-        use_container_width=True
-    )
 
 # Footer
 st.markdown("---")
