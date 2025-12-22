@@ -1,7 +1,7 @@
 # Text to Speech Pipeline
 
 ## Overview
-A Streamlit web application that converts text to speech using the Suno Bark model. Features automatic device detection (MPS/CUDA/CPU), text input, audio playback, and WAV file downloads.
+A Streamlit web application that converts text to speech using the Suno Bark Small model. Features automatic device detection (MPS/CUDA/CPU), text input, audio playback, and WAV file downloads.
 
 ## Installation
 
@@ -19,7 +19,7 @@ streamlit run streamlit_app.py
 
 The app will:
 - Automatically detect and use MPS acceleration on Apple Silicon Macs
-- Download the Bark model on first run (~5GB, one-time)
+- Download the Bark Small model on first run (~2GB, one-time)
 - Open in your default browser
 
 ## How to Use
