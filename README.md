@@ -1,7 +1,9 @@
 # Text to Speech Pipeline
 
 ## Overview
-A Streamlit web application that converts text to speech using the Suno Bark Small model. Features automatic device detection (MPS/CUDA/CPU), text input, audio playback, and WAV file downloads.
+A Streamlit web application that converts text to speech using the Suno Bark Small model. Features automatic device detection (MPS/CUDA/CPU), voice selection across 13 languages, text input, audio playback, and WAV file downloads.
+
+**Supported Languages:** Chinese (Simplified), English, French, German, Hindi, Italian, Japanese, Korean, Polish, Portuguese, Russian, Spanish, and Turkish.
 
 ## Installation
 
@@ -25,9 +27,10 @@ The app will:
 ## How to Use
 
 1. Enter text in the input box
-2. Click "Generate Speech" 
-3. Play the generated audio in the browser
-4. Download as a WAV file
+2. Select your preferred language, gender, and speaker
+3. Click "Generate Speech" 
+4. Play the generated audio in the browser
+5. Download as a WAV file
 
 ## Tips for Using Bark
 
