@@ -1,6 +1,6 @@
 import streamlit as st
 import torch
-from transformers import AutoProcessor, AutoModel
+from transformers import BarkModel, BarkProcessor
 import scipy.io.wavfile as wavfile
 import numpy as np
 import io
@@ -14,7 +14,7 @@ st.set_page_config(
 
 # Title and description
 st.title("🎙️ Text to Speech Pipeline")
-st.markdown("Convert text to speech using the Suno Bark model.")
+st.markdown("Convert text to speech using the Suno Bark Small model.")
 
 # Device selection
 @st.cache_resource
@@ -32,9 +32,8 @@ def load_model():
     device = get_device()
     st.info(f"Loading model on device: {device}")
     
-    processor = AutoProcessor.from_pretrained("suno/bark")
-    model = AutoModel.from_pretrained("suno/bark")
-    model = model.to(device)
+    model = BarkModel.from_pretrained("suno/bark-small", dtype=torch.float16).to(device)
+    processor = BarkProcessor.from_pretrained("suno/bark-small")
     
     return processor, model, device
 
