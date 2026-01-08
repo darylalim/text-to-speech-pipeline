@@ -1,10 +1,9 @@
+import numpy as np
+import scipy.io.wavfile as wavfile
 import streamlit as st
 import torch
 from transformers import BarkModel, BarkProcessor
-import scipy.io.wavfile as wavfile
-import numpy as np
 
-# Voice presets organized by language and gender
 VOICE_PRESETS = {
     "English": {
         "code": "en",
@@ -73,79 +72,84 @@ VOICE_PRESETS = {
     }
 }
 
-# Set page configuration
-st.set_page_config(
-    page_title="Text to Speech Pipeline",
-    page_icon="🎙️",
-    layout="centered"
-)
-
-# Title and description
-st.title("🎙️ Text to Speech Pipeline")
-st.markdown("Convert text to speech using the Suno Bark Small model.")
-
-# Device selection
-@st.cache_resource
 def get_device():
+    """Automatically detect the best available device in order of priority: MPS, CUDA, CPU."""
     if torch.backends.mps.is_available():
-        return torch.device("mps")
+        return "mps"
     elif torch.cuda.is_available():
-        return torch.device("cuda")
+        return "cuda"
     else:
-        return torch.device("cpu")
+        return "cpu"
 
-# Load model and processor with caching
 @st.cache_resource
-def load_model():
-    device = get_device()
-    st.info(f"Loading model on device: {device}")
-    
-    model = BarkModel.from_pretrained("suno/bark-small", dtype=torch.float16).to(device)
+def load_model(device):
+    """Load model and processor at application startup."""
+    model = BarkModel.from_pretrained("suno/bark-small", device_map=device, dtype=torch.float16)
     processor = BarkProcessor.from_pretrained("suno/bark-small")
     
     # Set pad_token_id to avoid warnings during generation
     if model.generation_config.pad_token_id is None:
         model.generation_config.pad_token_id = model.generation_config.eos_token_id
     
-    return processor, model, device
+    return model, processor
 
-# Initialize session state for generated audio
+def generate_speech(text, voice_preset, model, processor, device):
+    """Generate speech from text input with voice preset and attention mask"""
+    inputs = processor(
+        text=[text],
+        return_attention_mask=True,
+        return_tensors="pt",
+        voice_preset=voice_preset
+    )
+    
+    inputs = {k: v.to(device) for k, v in inputs.items()}
+    
+    with torch.no_grad():
+        speech_values = model.generate(
+            **inputs,
+            do_sample=True,
+            pad_token_id=model.generation_config.pad_token_id
+        )
+    
+    sampling_rate = model.generation_config.sample_rate
+    
+    audio_array = speech_values.cpu().numpy().squeeze()
+
+    return sampling_rate, audio_array
+
+st.title("Text to Speech Pipeline")
+st.markdown("Generate speech from text with Suno Bark models.")
+
+device = get_device()
+
+with st.spinner(f"Loading model on {device.upper()}..."):
+    model, processor = load_model(device)
+
+# Initialize session state
 if 'audio_data' not in st.session_state:
     st.session_state.audio_data = None
 if 'sampling_rate' not in st.session_state:
     st.session_state.sampling_rate = None
 
-# Load model
-try:
-    with st.spinner("Loading model..."):
-        processor, model, device = load_model()
-    st.success(f"✓ Model loaded successfully on {device}")
-except Exception as e:
-    st.error(f"Error loading model: {str(e)}")
-    st.stop()
-
-# Text input
-st.markdown("### Enter text")
+st.subheader("Text")
 text_input = st.text_area(
-    "Text to convert to speech:",
-    placeholder="Type your text here. You can include emotions like [laughs], [sighs], etc.",
+    "Text",
+    placeholder="Enter text...",
     height=150,
-    help="The Bark model supports emotional cues like [laughs], [sighs], [music], etc."
+    help="Bark models support emotional cues like [laughs], [sighs], [music], etc."
 )
 
-# Voice preset selection
-st.markdown("### Select Voice")
+st.subheader("Voice")
 col1, col2, col3 = st.columns(3)
 
 with col1:
     language = st.selectbox(
         "Language",
         options=list(VOICE_PRESETS.keys()),
-        help="Select the language for the voice"
+        help="Select a language for the voice preset."
     )
 
 with col2:
-    # Get available genders for selected language
     available_genders = []
     if VOICE_PRESETS[language]["male"]:
         available_genders.append("Male")
@@ -155,11 +159,10 @@ with col2:
     gender = st.selectbox(
         "Gender",
         options=available_genders,
-        help="Select the gender of the voice"
+        help="Select a gender for the voice preset."
     )
 
 with col3:
-    # Get available speakers for selected language and gender
     gender_key = gender.lower()
     available_speakers = VOICE_PRESETS[language][gender_key]
     
@@ -167,66 +170,30 @@ with col3:
         "Speaker",
         options=available_speakers,
         format_func=lambda x: f"Speaker {x}",
-        help="Select a specific speaker voice"
+        help="Select a speaker for the voice preset."
     )
 
-# Generate the voice preset string
+# Generate voice preset string
 language_code = VOICE_PRESETS[language]["code"]
 voice_preset = f"v2/{language_code}_speaker_{speaker_number}"
 
-# Generate button
-if st.button("🎵 Generate Speech", type="primary", use_container_width=True):
-    if not text_input.strip():
-        st.warning("⚠️ Please enter text!")
-    else:
+if st.button("Generate", type="primary"):
+    if text_input.strip() is not None:
         try:
             with st.spinner("Generating speech..."):
-                # Process input with voice preset and explicit attention mask
-                inputs = processor(
-                    text=[text_input],
-                    return_tensors="pt",
-                    voice_preset=voice_preset,
-                    return_attention_mask=True
-                )
-                
-                # Move inputs to device
-                inputs = {k: v.to(device) for k, v in inputs.items()}
-                
-                # Generate speech with explicit parameters
-                with torch.no_grad():
-                    speech_values = model.generate(
-                        **inputs,
-                        do_sample=True,
-                        pad_token_id=model.generation_config.pad_token_id
-                    )
-                
-                # Get sampling rate
-                sampling_rate = model.generation_config.sample_rate
-                
-                # Convert to numpy and move to CPU
-                audio_array = speech_values.cpu().numpy().squeeze()
-                
-                # Store in session state
-                st.session_state.audio_data = audio_array
+                sampling_rate, audio_array = generate_speech(text_input, voice_preset, model, processor, device)
+
                 st.session_state.sampling_rate = sampling_rate
-                
-            st.success(f"✓ Speech generated successfully using {language} - {gender} - Speaker {speaker_number}")
-            
+                st.session_state.audio_data = audio_array
+
+            st.success(f"Done. Speech generated with {language} {gender} Speaker {speaker_number}.")
+
         except Exception as e:
             st.error(f"Error generating speech: {str(e)}")
+    else:
+        st.warning("Enter text.")
 
-# Display audio player if audio exists
+# Display audio player
 if st.session_state.audio_data is not None:
-    st.markdown("### 🔊 Generated Audio")
-    
-    # Display audio player
+    st.write("Audio")
     st.audio(st.session_state.audio_data, sample_rate=st.session_state.sampling_rate)
-
-# Footer
-st.markdown("---")
-st.markdown(
-    "<div style='text-align: center; color: gray;'>"
-    "Powered by Suno Bark • Built with Streamlit"
-    "</div>",
-    unsafe_allow_html=True
-)
