@@ -94,7 +94,7 @@ def load_model(device):
     return model, processor
 
 def generate_speech(text, voice_preset, model, processor, device):
-    """Generate speech from text input with voice preset and attention mask"""
+    """Generate speech from text input with voice preset and attention mask."""
     inputs = processor(
         text=[text],
         return_attention_mask=True,
@@ -118,7 +118,7 @@ def generate_speech(text, voice_preset, model, processor, device):
     return sampling_rate, audio_array
 
 st.title("Text to Speech Pipeline")
-st.markdown("Generate speech from text with Suno Bark models.")
+st.write("Generate speech from text with Suno Bark models.")
 
 device = get_device()
 
