@@ -1,7 +1,17 @@
+# Python
+__pycache__/
+streamlit_env/
+
+# Tools
+.pytest_cache/
+.ruff_cache/
+
+# macOS
 .DS_Store
-.ipynb_checkpoints
+
+# Notebooks
+.ipynb_checkpoints/
 *.ipynb
+
+# Project
 bark_out.wav
-streamlit_env
-streamlit_app_v1.py
-streamlit_app_v2.py
