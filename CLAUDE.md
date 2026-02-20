@@ -4,23 +4,21 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Streamlit web app for generating multilingual speech using [Bark Small](https://huggingface.co/suno/bark-small), a transformer-based text-to-audio model by [Suno](https://www.suno.ai/). Bark can also generate music, background noise, sound effects, and produce nonverbal communications like laughing, sighing and crying.
+Streamlit web app for generating multilingual speech using [Bark Small](https://huggingface.co/suno/bark-small), a transformer-based text-to-audio model by [Suno](https://www.suno.ai/).
 
 ## Setup
 
 ```bash
-python3.12 -m venv streamlit_env
-source streamlit_env/bin/activate
-pip install -r requirements.txt
-streamlit run streamlit_app.py
+uv sync --group dev
+uv run streamlit run streamlit_app.py
 ```
 
 ## Commands
 
-- **Lint**: `ruff check .`
-- **Format**: `ruff format .`
-- **Typecheck**: `pyright`
-- **Test**: `pytest`
+- **Lint**: `uv run ruff check .`
+- **Format**: `uv run ruff format .`
+- **Typecheck**: `uv run ty check`
+- **Test**: `uv run pytest`
 
 ## Code Style
 
@@ -31,86 +29,58 @@ streamlit run streamlit_app.py
 
 ## Dependencies
 
-- `transformers` - Hugging Face model loading
-- `torch` - Tensor operations
-- `accelerate` - Inference optimization
-- `numpy` - Array operations
-- `scipy` - Audio file processing
-- `streamlit` - Web user interface
+**Runtime:** `transformers`, `torch`, `accelerate`, `numpy`, `scipy`, `streamlit`
+
+**Dev:** `ruff`, `ty`, `pytest`
 
 ## Configuration
 
-`pyproject.toml` — ruff isort (`combine-as-imports`), pytest (`pythonpath`), and pyright (`pythonVersion = "3.12"`).
+`pyproject.toml` — project metadata, dependencies, dependency groups, ruff isort (`combine-as-imports`), pytest (`pythonpath`), ty (`python-version = "3.12"`).
 
 ## Architecture
 
-### Entry Point
+### Files
 
-`streamlit_app.py` - single-file app.
-
-### Tests
-
-`tests/` directory with `conftest.py` (mocks streamlit and transformers for import) and `test_app.py`.
+- `streamlit_app.py` — single-file app
+- `voice_presets.json` — voice preset data (language, gender, speaker mappings)
+- `tests/conftest.py` — mocks `streamlit` and `transformers` for import
+- `tests/test_app.py` — unit tests
 
 ### Model
 
-Uses [Bark Small](https://huggingface.co/suno/bark-small) (`suno/bark-small`) exclusively for local memory constraints.
+[Bark Small](https://huggingface.co/suno/bark-small) (`suno/bark-small`) exclusively, for local memory constraints.
 
 ### Supported Languages
 
-- English (en)
-- German (de)
-- Spanish (es)
-- French (fr)
-- Hindi (hi)
-- Italian (it)
-- Japanese (ja)
-- Korean (ko)
-- Polish (pl)
-- Portuguese (pt)
-- Russian (ru)
-- Turkish (tr)
-- Chinese, simplified (zh)
-
-[Voice prompt library](https://suno-ai.notion.site/8b8e8749ed514b0cbf3f699013548683?v=bc67cff786b04b50b3ceb756fd05f68c)
+en, de, es, fr, hi, it, ja, ko, pl, pt, ru, tr, zh — [voice prompt library](https://suno-ai.notion.site/8b8e8749ed514b0cbf3f699013548683?v=bc67cff786b04b50b3ceb756fd05f68c)
 
 ### Performance
 
-- Use best available device: MPS > CUDA > CPU
-- `@st.cache_resource` to cache model
-- Use float16 precision for `dtype`
+- Best available device: MPS > CUDA > CPU
+- `@st.cache_resource` to cache model and processor
+- float16 precision for `dtype`
 - `torch.inference_mode()` for generation
-- Text input with voice selection (language → gender → speaker)
-- Voice presets map languages to speaker options in format `v2/{language_code}_speaker_{N}`
-- Generated audio displayed in browser player
-- Do not use session state to persist audio
-- `time.perf_counter()` for timing (fractional seconds)
+- `time.perf_counter()` for timing
 
-### Error Handling
+### UI
 
-- Unexpected exceptions shown with `st.exception()` for debugging
-
-### Audio Download
-
-Audio file containing synthesized text-to-speech output downloadable via `st.download_button`.
-
-Response headers:
-
-- `model` (string) - model name
-- `prompt_eval_count` (integer) - number of input tokens in the prompt
-- `output_duration` (float) - generated audio duration in seconds
-- `eval_duration` (float) - text-to-speech generation time in seconds (rounded to 2 decimal places)
-
-### Metrics
-
-`st.metric` displays all response headers.
+- Text input with voice selection (language, gender, speaker)
+- Voice presets loaded from `voice_presets.json` in format `v2/{language_code}_speaker_{N}`
+- Generated audio displayed in browser player via `st.audio`
+- WAV download via `st.download_button`
+- Metrics via `st.metric`: model name, input tokens, output duration, generation time
+- Errors shown with `st.exception()`
+- No session state for audio persistence
 
 ## Bark Gotchas
 
-- **Audio dtype**: Model outputs float16 tensors when loaded with `dtype=torch.float16`. Convert to float32 with `.float()` before `.numpy()` — `scipy.io.wavfile.write` does not support float16.
-- **Sub-config access**: `model.generation_config.semantic_config` is a dict, not an object. Use dict access (`.get()`, `[]`), not attribute access.
-- **pad_token_id**: Set on `generation_config.semantic_config` (dict), not on the top-level `generation_config`. The top-level setting has no effect on Bark's semantic sub-model. Must NOT equal `eos_token_id` — use `eos_token_id + 1` (10001, outside codebook range 0–10000). Setting them equal triggers an "attention mask not set" error because the model can't infer padding from input when the two tokens are identical.
-- **Device transfer**: Use `inputs.to(device)` (BatchFeature method), not a dict comprehension. BatchFeature.to() handles nested structures like `history_prompt` and preserves `attention_mask` forwarding.
+- **Audio dtype** — float16 tensors must be converted to float32 (`.float()`) before `.numpy()`. `scipy.io.wavfile.write` rejects float16.
+- **semantic_config** — `model.generation_config.semantic_config` is a dict, not an object. Use `[]` / `.get()`, not attribute access.
+- **pad_token_id** — Set on `semantic_config` (dict), not top-level `generation_config`. Must not equal `eos_token_id` — use `eos_token_id + 1` (10001). Equal values trigger "attention mask not set" error.
+- **tie_word_embeddings** — Set `model.config.tie_word_embeddings = False` after loading. Do not pass as kwarg to `from_pretrained()` (raises `TypeError`).
+- **do_sample** — Set on `model.generation_config`, not as kwarg to `generate()`. Mixing config with kwargs is deprecated.
+- **max_length** — Delete `model.generation_config.max_length` after loading. Bark sets both `max_length` (20) and `max_new_tokens` (768), which conflict. Only `max_new_tokens` should be used.
+- **Device transfer** — Use `inputs.to(device)` (BatchFeature method), not dict comprehension. Handles nested structures and preserves `attention_mask` forwarding.
 
 ## Resources
 

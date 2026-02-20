@@ -8,18 +8,21 @@ Streamlit web app for generating multilingual speech using [Bark Small](https://
 - In-browser audio playback and WAV download
 - Generation metrics: model name, input tokens, output duration, generation time
 
+## Requirements
+
+- Python 3.12+
+- [uv](https://docs.astral.sh/uv/)
+
 ## Installation
 
 ```bash
-python3.12 -m venv streamlit_env
-source streamlit_env/bin/activate
-pip install -r requirements.txt
-streamlit run streamlit_app.py
+uv sync --group dev
+uv run streamlit run streamlit_app.py
 ```
 
 ## Development
 
-- **Lint**: `ruff check .`
-- **Format**: `ruff format .`
-- **Typecheck**: `pyright`
-- **Test**: `pytest`
+- **Lint**: `uv run ruff check .`
+- **Format**: `uv run ruff format .`
+- **Typecheck**: `uv run ty check`
+- **Test**: `uv run pytest`
