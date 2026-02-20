@@ -1,5 +1,7 @@
 import io
+import json
 import time
+from pathlib import Path
 from typing import TypedDict
 
 import numpy as np
@@ -15,73 +17,9 @@ class VoicePreset(TypedDict):
     female: list[int]
 
 
-VOICE_PRESETS: dict[str, VoicePreset] = {
-    "English": {
-        "code": "en",
-        "male": [0, 1, 2, 3, 4, 5, 6, 7, 8],
-        "female": [9],
-    },
-    "Chinese (Simplified)": {
-        "code": "zh",
-        "male": [0, 1, 2, 3, 5, 8],
-        "female": [4, 6, 7, 9],
-    },
-    "French": {
-        "code": "fr",
-        "male": [0, 3, 4, 6, 7, 8, 9],
-        "female": [1, 2, 5],
-    },
-    "German": {
-        "code": "de",
-        "male": [0, 1, 2, 4, 5, 6, 7, 9],
-        "female": [3, 8],
-    },
-    "Hindi": {
-        "code": "hi",
-        "male": [2, 5, 6, 7, 8],
-        "female": [0, 1, 3, 4, 9],
-    },
-    "Italian": {
-        "code": "it",
-        "male": [0, 1, 3, 4, 5, 6, 8],
-        "female": [2, 7, 9],
-    },
-    "Japanese": {
-        "code": "ja",
-        "male": [2, 6],
-        "female": [0, 1, 3, 4, 5, 7, 8, 9],
-    },
-    "Korean": {
-        "code": "ko",
-        "male": [1, 2, 3, 4, 5, 6, 7, 8, 9],
-        "female": [0],
-    },
-    "Polish": {
-        "code": "pl",
-        "male": [0, 1, 2, 3, 5, 7, 8],
-        "female": [4, 6, 9],
-    },
-    "Portuguese": {
-        "code": "pt",
-        "male": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
-        "female": [],
-    },
-    "Russian": {
-        "code": "ru",
-        "male": [0, 1, 2, 3, 4, 7, 8],
-        "female": [5, 6, 9],
-    },
-    "Spanish": {
-        "code": "es",
-        "male": [0, 1, 2, 3, 4, 5, 6, 7],
-        "female": [8, 9],
-    },
-    "Turkish": {
-        "code": "tr",
-        "male": [0, 1, 2, 3, 6, 7, 8, 9],
-        "female": [4, 5],
-    },
-}
+VOICE_PRESETS: dict[str, VoicePreset] = json.loads(
+    (Path(__file__).parent / "voice_presets.json").read_text()
+)
 
 MODEL_CHECKPOINT = "suno/bark-small"
 
@@ -167,7 +105,11 @@ with voice_col1:
 preset = VOICE_PRESETS[language]
 
 with voice_col2:
-    available_genders = [g for g in ("Male", "Female") if preset[g.lower()]]
+    available_genders: list[str] = []
+    if preset["male"]:
+        available_genders.append("Male")
+    if preset["female"]:
+        available_genders.append("Female")
     gender = st.selectbox(
         "Gender",
         options=available_genders,
@@ -199,14 +141,11 @@ if st.button("Generate", type="primary"):
 
             st.audio(audio_array, sample_rate=sampling_rate)
 
-            metrics = {
-                "Model": "Bark Small",
-                "Input Tokens": prompt_eval_count,
-                "Output Duration": f"{output_duration:.2f}s",
-                "Generation Time": f"{eval_duration}s",
-            }
-            for col, (label, value) in zip(st.columns(4), metrics.items()):
-                col.metric(label, value)
+            col1, col2, col3, col4 = st.columns(4)
+            col1.metric("Model", "Bark Small")
+            col2.metric("Input Tokens", prompt_eval_count)
+            col3.metric("Output Duration", f"{output_duration:.2f}s")
+            col4.metric("Generation Time", f"{eval_duration}s")
 
             wav_buffer = io.BytesIO()
             wavfile.write(wav_buffer, sampling_rate, audio_array)
