@@ -40,6 +40,8 @@ def load_model(device: str) -> tuple[BarkModel, BarkProcessor]:
     model.config.tie_word_embeddings = False
     processor = BarkProcessor.from_pretrained(MODEL_CHECKPOINT)
 
+    model.generation_config.do_sample = True
+
     semantic_config = model.generation_config.semantic_config
     if semantic_config.get("pad_token_id") is None:
         semantic_config["pad_token_id"] = semantic_config["eos_token_id"] + 1
@@ -64,10 +66,7 @@ def generate_speech(
     prompt_eval_count = inputs["input_ids"].shape[-1]
 
     with torch.inference_mode():
-        speech_values = model.generate(
-            **inputs.to(device),
-            do_sample=True,
-        )
+        speech_values = model.generate(**inputs.to(device))
 
     sampling_rate = model.generation_config.sample_rate
     return (
