@@ -1,9 +1,0 @@
-accelerate
-numpy
-pyright
-pytest
-ruff
-scipy
-streamlit
-torch
-transformers

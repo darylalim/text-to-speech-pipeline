@@ -1,8 +1,29 @@
+[project]
+name = "text-to-speech-pipeline"
+version = "0.1.0"
+description = "Streamlit web app for multilingual text-to-speech using Bark Small"
+requires-python = ">=3.12"
+dependencies = [
+    "accelerate",
+    "numpy",
+    "scipy",
+    "streamlit",
+    "torch",
+    "transformers",
+]
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "ruff",
+    "ty",
+]
+
 [tool.ruff.lint.isort]
 combine-as-imports = true
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
 
-[tool.pyright]
-pythonVersion = "3.12"
+[tool.ty.environment]
+python-version = "3.12"

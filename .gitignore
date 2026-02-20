@@ -1,6 +1,6 @@
 # Python
 __pycache__/
-streamlit_env/
+.venv/
 
 # Tools
 .pytest_cache/
