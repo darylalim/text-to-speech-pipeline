@@ -37,6 +37,7 @@ def load_model(device: str) -> tuple[BarkModel, BarkProcessor]:
     model = BarkModel.from_pretrained(
         MODEL_CHECKPOINT, device_map=device, dtype=torch.float16
     )
+    model.config.tie_word_embeddings = False
     processor = BarkProcessor.from_pretrained(MODEL_CHECKPOINT)
 
     semantic_config = model.generation_config.semantic_config
