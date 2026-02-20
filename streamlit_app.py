@@ -41,6 +41,7 @@ def load_model(device: str) -> tuple[BarkModel, BarkProcessor]:
     processor = BarkProcessor.from_pretrained(MODEL_CHECKPOINT)
 
     model.generation_config.do_sample = True
+    del model.generation_config.max_length
 
     semantic_config = model.generation_config.semantic_config
     if semantic_config.get("pad_token_id") is None:
