@@ -43,7 +43,7 @@ def generate_speech(
         cfg_weight=cfg_weight,
         exaggeration=exaggeration,
     )
-    return model.sr, wav.squeeze(0).numpy()
+    return model.sr, wav.squeeze(0).float().numpy()
 
 
 st.title("Text to Speech Pipeline")
