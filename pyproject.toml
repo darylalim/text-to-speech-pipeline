@@ -8,6 +8,7 @@ dependencies = [
     "numpy>=1.26.0",
     "streamlit",
     "scipy",
+    "setuptools<71",
     "torch",
 ]
 
