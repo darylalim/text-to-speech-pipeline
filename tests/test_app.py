@@ -113,6 +113,26 @@ class TestLoadModel:
         model = load_model("cpu")
         assert model is ChatterboxMultilingualTTS.from_pretrained.return_value  # type: ignore[union-attribute]
 
+    def test_patches_torch_load_with_map_location(self) -> None:
+        captured_load = {}
+
+        def fake_from_pretrained(device: torch.device) -> MagicMock:
+            captured_load["fn"] = torch.load
+            return MagicMock()
+
+        ChatterboxMultilingualTTS.from_pretrained.side_effect = fake_from_pretrained  # type: ignore[union-attribute]
+        try:
+            load_model("cpu")
+            # During from_pretrained, torch.load should have map_location baked in
+            assert captured_load["fn"].keywords["map_location"] == torch.device("cpu")
+        finally:
+            ChatterboxMultilingualTTS.from_pretrained.side_effect = None  # type: ignore[union-attribute]
+
+    def test_restores_torch_load_after_loading(self) -> None:
+        original = torch.load
+        load_model("cpu")
+        assert torch.load is original
+
 
 class TestGenerateSpeech:
     def _mock_model(

@@ -1,6 +1,7 @@
 import io
 import tempfile
 import time
+from functools import partial
 from pathlib import Path
 
 import numpy as np
@@ -25,7 +26,12 @@ def get_device() -> str:
 
 @st.cache_resource
 def load_model(device: str) -> ChatterboxMultilingualTTS:
-    return ChatterboxMultilingualTTS.from_pretrained(device=torch.device(device))
+    _torch_load = torch.load
+    torch.load = partial(_torch_load, map_location=torch.device(device))  # type: ignore[assignment]
+    try:
+        return ChatterboxMultilingualTTS.from_pretrained(device=torch.device(device))
+    finally:
+        torch.load = _torch_load
 
 
 def generate_speech(
