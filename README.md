@@ -1,12 +1,14 @@
 # Text to Speech Pipeline
 
-Streamlit web app for generating multilingual speech using [Bark Small](https://huggingface.co/suno/bark-small), a transformer-based text-to-audio model by [Suno](https://www.suno.ai/).
+Streamlit web app for generating multilingual speech using [Chatterbox Multilingual](https://github.com/resemble-ai/chatterbox), a text-to-speech model by [Resemble AI](https://www.resemble.ai/).
 
 ## Features
 
-- 13 supported languages with configurable voice selection (language, gender, speaker)
+- 23 supported languages
+- Optional voice cloning from a ~10s reference audio clip
+- Adjustable speech style (CFG weight and exaggeration)
 - In-browser audio playback and WAV download
-- Generation metrics: model name, input tokens, output duration, generation time
+- Generation metrics: model name, input characters, output duration, generation time
 
 ## Requirements
 
