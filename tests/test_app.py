@@ -39,9 +39,29 @@ EXPECTED_LANGUAGES = [
 ]
 
 EXPECTED_CODES = {
-    "ar", "da", "de", "el", "en", "es", "fi", "fr", "he", "hi",
-    "it", "ja", "ko", "ms", "nl", "no", "pl", "pt", "ru", "sv",
-    "sw", "tr", "zh",
+    "ar",
+    "da",
+    "de",
+    "el",
+    "en",
+    "es",
+    "fi",
+    "fr",
+    "he",
+    "hi",
+    "it",
+    "ja",
+    "ko",
+    "ms",
+    "nl",
+    "no",
+    "pl",
+    "pt",
+    "ru",
+    "sv",
+    "sw",
+    "tr",
+    "zh",
 }
 
 
@@ -85,11 +105,13 @@ class TestGetDevice:
 class TestLoadModel:
     def test_calls_from_pretrained_with_device(self) -> None:
         load_model("cpu")
-        ChatterboxMultilingualTTS.from_pretrained.assert_called_with(device="cpu")
+        ChatterboxMultilingualTTS.from_pretrained.assert_called_with(  # type: ignore[union-attribute]
+            device=torch.device("cpu")
+        )
 
     def test_returns_model(self) -> None:
         model = load_model("cpu")
-        assert model is ChatterboxMultilingualTTS.from_pretrained.return_value
+        assert model is ChatterboxMultilingualTTS.from_pretrained.return_value  # type: ignore[union-attribute]
 
 
 class TestGenerateSpeech:

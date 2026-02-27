@@ -25,7 +25,7 @@ def get_device() -> str:
 
 @st.cache_resource
 def load_model(device: str) -> ChatterboxMultilingualTTS:
-    return ChatterboxMultilingualTTS.from_pretrained(device=device)
+    return ChatterboxMultilingualTTS.from_pretrained(device=torch.device(device))
 
 
 def generate_speech(
@@ -111,9 +111,7 @@ if st.button("Generate", type="primary"):
             audio_prompt_path: str | None = None
             if audio_file is not None:
                 suffix = Path(audio_file.name).suffix
-                with tempfile.NamedTemporaryFile(
-                    delete=False, suffix=suffix
-                ) as tmp:
+                with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
                     tmp.write(audio_file.read())
                     audio_prompt_path = tmp.name
 
