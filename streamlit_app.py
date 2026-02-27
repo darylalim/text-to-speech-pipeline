@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 import streamlit as st
 import torch
-import torchaudio
+import scipy.io.wavfile as wavfile
 
 from chatterbox.mtl_tts import SUPPORTED_LANGUAGES, ChatterboxMultilingualTTS
 
@@ -143,12 +143,7 @@ if st.button("Generate", type="primary"):
             col4.metric("Generation Time", f"{eval_duration}s")
 
             wav_buffer = io.BytesIO()
-            torchaudio.save(
-                wav_buffer,
-                torch.tensor(audio_array).unsqueeze(0),
-                sampling_rate,
-                format="wav",
-            )
+            wavfile.write(wav_buffer, sampling_rate, audio_array)
             st.download_button(
                 label="Download Audio",
                 data=wav_buffer.getvalue(),

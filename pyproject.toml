@@ -7,8 +7,8 @@ dependencies = [
     "chatterbox-tts",
     "numpy>=1.26.0",
     "streamlit",
+    "scipy",
     "torch",
-    "torchaudio",
 ]
 
 [dependency-groups]

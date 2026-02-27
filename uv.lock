@@ -1971,9 +1971,9 @@ source = { virtual = "." }
 dependencies = [
     { name = "chatterbox-tts" },
     { name = "numpy" },
+    { name = "scipy" },
     { name = "streamlit" },
     { name = "torch" },
-    { name = "torchaudio" },
 ]
 
 [package.dev-dependencies]
@@ -1987,9 +1987,9 @@ dev = [
 requires-dist = [
     { name = "chatterbox-tts" },
     { name = "numpy", specifier = ">=1.26.0" },
+    { name = "scipy" },
     { name = "streamlit" },
     { name = "torch" },
-    { name = "torchaudio" },
 ]
 
 [package.metadata.requires-dev]
