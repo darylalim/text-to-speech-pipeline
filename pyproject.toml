@@ -6,6 +6,7 @@ requires-python = ">=3.12"
 dependencies = [
     "chatterbox-tts",
     "numpy>=1.26.0",
+    "peft",
     "streamlit",
     "scipy",
     "setuptools<71",
