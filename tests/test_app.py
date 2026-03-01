@@ -111,6 +111,12 @@ class TestDependencyPatches:
             ):
                 pass
 
+    def test_llama_config_defaults_to_eager_attention(self) -> None:
+        from transformers import LlamaConfig
+
+        config = LlamaConfig()
+        assert config._attn_implementation == "eager"
+
     def test_generation_config_output_attentions_no_warning(self) -> None:
         from transformers import GenerationConfig
 

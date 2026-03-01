@@ -50,6 +50,25 @@ warnings.filterwarnings(
     module=r"transformers\.generation\.configuration_utils",
 )
 
+# Patch: chatterbox passes output_attentions=True to every LlamaModel forward call, which
+# forces SDPA attention to fall back to eager on each step. Default LlamaConfig to eager so
+# the model uses it directly without the fallback warning. This also avoids a breaking change
+# in transformers v5.0.0 where the automatic fallback will be removed.
+# Remove when chatterbox passes attn_implementation="eager" itself.
+from transformers import LlamaConfig as _LlamaConfig  # noqa: E402
+
+_original_llama_config_init = _LlamaConfig.__init__
+
+
+def _llama_config_eager_attn(
+    self: _LlamaConfig, *args: object, **kwargs: object
+) -> None:
+    kwargs.setdefault("attn_implementation", "eager")
+    _original_llama_config_init(self, *args, **kwargs)
+
+
+_LlamaConfig.__init__ = _llama_config_eager_attn  # type: ignore[method-assign]
+
 from chatterbox.mtl_tts import SUPPORTED_LANGUAGES, ChatterboxMultilingualTTS  # noqa: E402
 
 import torchaudio.backend._no_backend  # noqa: E402
