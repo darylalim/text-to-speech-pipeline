@@ -28,7 +28,7 @@ uv run streamlit run streamlit_app.py
 
 ## Dependencies
 
-**Runtime:** `chatterbox-tts`, `torch`, `torchaudio`, `numpy`, `streamlit`
+**Runtime:** `chatterbox-tts`, `numpy`, `peft`, `scipy`, `setuptools`, `streamlit`, `torch`
 
 **Dev:** `ruff`, `ty`, `pytest`
 
@@ -65,10 +65,17 @@ ar, da, de, el, en, es, fi, fr, he, hi, it, ja, ko, ms, nl, no, pl, pt, ru, sv, 
 - Optional voice cloning via file upload (~10s WAV/MP3 reference audio)
 - Style sliders: CFG Weight (0.0–1.0), Exaggeration (0.0–1.0)
 - Generated audio displayed in browser player via `st.audio`
-- WAV download via `st.download_button` (saved with `torchaudio.save`)
+- WAV download via `st.download_button` (saved with `scipy.io.wavfile.write`)
 - Metrics via `st.metric`: model name, input characters, output duration, generation time
 - Errors shown with `st.exception()`
 - No session state for audio persistence
+
+### Dependency Patches
+
+Monkey-patches applied at import time to fix deprecation warnings from transitive dependencies. Remove when `chatterbox-tts` upgrades its pinned versions.
+
+- `diffusers.models.lora.LoRACompatibleLinear` replaced with `torch.nn.Linear` (PEFT backend migration; removable with `peft` dep when chatterbox upgrades diffusers past 0.29)
+- `torchaudio.backend.{no_backend,soundfile_backend,sox_io_backend}.__getattr__` replaced with silent delegators (deprecated I/O backend dispatch warning triggered by Streamlit's file watcher; removable when torchaudio drops these stub modules)
 
 ## Resources
 
