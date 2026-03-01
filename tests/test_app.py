@@ -103,6 +103,19 @@ class TestDependencyPatches:
             warnings.simplefilter("error")
             hasattr(torchaudio.backend.sox_io_backend, "__path__")
 
+    def test_generation_config_output_attentions_no_warning(self) -> None:
+        from transformers import GenerationConfig
+
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            warnings.filterwarnings(
+                "ignore",
+                message=r"`return_dict_in_generate` is NOT set to `True`, but `output_attentions` is",
+                category=UserWarning,
+            )
+            GenerationConfig(output_attentions=True)
+        assert not any("output_attentions" in str(w.message) for w in caught)
+
 
 class TestModelName:
     def test_model_name(self) -> None:

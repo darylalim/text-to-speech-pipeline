@@ -1,6 +1,7 @@
 import io
 import tempfile
 import time
+import warnings
 from functools import partial
 from pathlib import Path
 
@@ -15,6 +16,17 @@ import diffusers.models.lora as _diffusers_lora
 # Patch: chatterbox-tts pins diffusers 0.29 which exposes deprecated LoRACompatibleLinear.
 # Remove this patch (and the peft dependency) when chatterbox upgrades diffusers.
 _diffusers_lora.LoRACompatibleLinear = nn.Linear  # type: ignore[attr-defined]
+
+# Patch: chatterbox sets output_attentions=True on the LlamaConfig for attention alignment,
+# which propagates to GenerationConfig and triggers a spurious warning about
+# return_dict_in_generate. Chatterbox uses manual forward passes, not model.generate(),
+# so the GenerationConfig value is never used. Remove when chatterbox fixes this.
+warnings.filterwarnings(
+    "ignore",
+    message=r"`return_dict_in_generate` is NOT set to `True`, but `output_attentions` is",
+    category=UserWarning,
+    module=r"transformers\.generation\.configuration_utils",
+)
 
 from chatterbox.mtl_tts import SUPPORTED_LANGUAGES, ChatterboxMultilingualTTS  # noqa: E402
 
