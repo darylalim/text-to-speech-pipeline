@@ -7,9 +7,36 @@ from pathlib import Path
 import numpy as np
 import streamlit as st
 import torch
+import torch.nn as nn
 import scipy.io.wavfile as wavfile
 
-from chatterbox.mtl_tts import SUPPORTED_LANGUAGES, ChatterboxMultilingualTTS
+import diffusers.models.lora as _diffusers_lora
+
+# Patch: chatterbox-tts pins diffusers 0.29 which exposes deprecated LoRACompatibleLinear.
+# Remove this patch (and the peft dependency) when chatterbox upgrades diffusers.
+_diffusers_lora.LoRACompatibleLinear = nn.Linear  # type: ignore[attr-defined]
+
+from chatterbox.mtl_tts import SUPPORTED_LANGUAGES, ChatterboxMultilingualTTS  # noqa: E402
+
+import torchaudio.backend._no_backend  # noqa: E402
+import torchaudio.backend._sox_io_backend  # noqa: E402
+import torchaudio.backend.no_backend  # noqa: E402
+import torchaudio.backend.soundfile_backend  # noqa: E402
+import torchaudio.backend.sox_io_backend  # noqa: E402
+from torchaudio._backend import soundfile_backend as _ta_soundfile_backend  # noqa: E402
+
+# Patch: torchaudio 2.x backend stub modules define __getattr__ that emits a deprecation
+# warning on any attribute access. Streamlit's file watcher triggers this via hasattr checks.
+# Replace with silent delegators. Remove when torchaudio drops these stub modules.
+torchaudio.backend.no_backend.__getattr__ = lambda name: getattr(  # type: ignore[attr-defined]
+    torchaudio.backend._no_backend, name
+)
+torchaudio.backend.soundfile_backend.__getattr__ = lambda name: getattr(  # type: ignore[attr-defined]
+    _ta_soundfile_backend, name
+)
+torchaudio.backend.sox_io_backend.__getattr__ = lambda name: getattr(  # type: ignore[attr-defined]
+    torchaudio.backend._sox_io_backend, name
+)
 
 MODEL_NAME = "Chatterbox Multilingual"
 
