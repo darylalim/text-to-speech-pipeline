@@ -1,4 +1,5 @@
 import io
+import logging
 import tempfile
 import time
 import warnings
@@ -103,6 +104,65 @@ try:
         )
 
     _T3Backend.forward = torch.inference_mode()(_t3_forward_dynamic_cache)  # type: ignore[method-assign]
+except (ImportError, AttributeError):
+    pass
+
+# Patch: chatterbox's AlignmentStreamAnalyzer forces EOS when its long_tail heuristic
+# fires (attention on final text tokens accumulating >= 5 after text completion, ~200ms).
+# This threshold is too aggressive and truncates audio prematurely, especially with
+# short inputs. Wrap step() to raise the effective threshold to 10 (~400ms) while
+# preserving EOS forcing for alignment_repetition and token_repetition.
+# Also suppress the noisy alignment analyzer logger.
+# Remove when chatterbox fixes upstream (issues #327, #435).
+logging.getLogger("chatterbox.models.t3.inference.alignment_stream_analyzer").setLevel(
+    logging.ERROR
+)
+
+try:
+    from chatterbox.models.t3.inference.alignment_stream_analyzer import (  # noqa: E402
+        AlignmentStreamAnalyzer as _AlignmentStreamAnalyzer,
+    )
+
+    _LONG_TAIL_THRESHOLD = 10
+
+    _original_asa_step = _AlignmentStreamAnalyzer.step
+
+    def _asa_step_relaxed_long_tail(
+        self: _AlignmentStreamAnalyzer,
+        logits: torch.Tensor,
+        next_token: int | torch.Tensor | None = None,
+    ) -> torch.Tensor:
+        saved_logits = logits.clone()
+        result = _original_asa_step(self, logits, next_token)
+
+        # If EOS was not forced, return as-is
+        if result[..., self.eos_idx].max().item() != 2**15:
+            return result
+
+        # EOS was forced. Preserve for alignment_repetition or token_repetition.
+        if self.completed_at is None:
+            return result
+
+        A = self.alignment
+        alignment_repetition = self.complete and (
+            A[self.completed_at :, :-5].max(dim=1).values.sum() > 5
+        )
+        token_repetition = (
+            len(self.generated_tokens) >= 3
+            and len(set(self.generated_tokens[-2:])) == 1
+        )
+
+        if alignment_repetition or token_repetition:
+            return result
+
+        # Only long_tail triggered. Re-check with raised threshold.
+        if A[self.completed_at :, -3:].sum(dim=0).max() >= _LONG_TAIL_THRESHOLD:
+            return result
+
+        # Below raised threshold — undo EOS forcing
+        return saved_logits
+
+    _AlignmentStreamAnalyzer.step = _asa_step_relaxed_long_tail  # type: ignore[method-assign]
 except (ImportError, AttributeError):
     pass
 

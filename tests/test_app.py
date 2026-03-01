@@ -130,6 +130,14 @@ class TestDependencyPatches:
             GenerationConfig(output_attentions=True)
         assert not any("output_attentions" in str(w.message) for w in caught)
 
+    def test_alignment_analyzer_logger_suppressed(self) -> None:
+        import logging
+
+        logger = logging.getLogger(
+            "chatterbox.models.t3.inference.alignment_stream_analyzer"
+        )
+        assert logger.level == logging.ERROR
+
     def test_dynamic_cache_avoids_legacy_path(self) -> None:
         from transformers.cache_utils import Cache, DynamicCache
 
