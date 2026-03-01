@@ -72,9 +72,14 @@ ar, da, de, el, en, es, fi, fr, he, hi, it, ja, ko, ms, nl, no, pl, pt, ru, sv, 
 
 ### Dependency Patches
 
-Monkey-patches applied at import time to fix deprecation warnings from transitive dependencies. Remove when `chatterbox-tts` upgrades its pinned versions.
+Monkey-patches applied at import time to fix warnings and bugs from transitive dependencies. Remove when `chatterbox-tts` upgrades its pinned versions.
 
-- `diffusers.models.lora.LoRACompatibleLinear` replaced with `torch.nn.Linear` (PEFT backend migration; removable with `peft` dep when chatterbox upgrades diffusers past 0.29)
+- `diffusers.models.lora.LoRACompatibleLinear` replaced with `torch.nn.Linear` (PEFT backend migration; removable when chatterbox upgrades diffusers past 0.29)
+- `GenerationConfig` warning for `return_dict_in_generate`/`output_attentions` suppressed via `warnings.filterwarnings` (removable when chatterbox stops setting `output_attentions=True` on LlamaConfig)
+- `torch.backends.cuda.sdp_kernel` replaced with `sdpa_kernel` wrapper (deprecated context manager; removable when chatterbox updates to new API)
+- `LlamaConfig.__init__` patched to default `attn_implementation="eager"` (avoids SDPA-to-eager fallback warning; removable when chatterbox passes `attn_implementation="eager"` itself)
+- `T3HuggingfaceBackend.forward` wrapped to convert `past_key_values` to `DynamicCache` (avoids legacy tuple cache deprecation; removable when chatterbox adopts Cache API)
+- `AlignmentStreamAnalyzer.step` wrapped to raise `long_tail` EOS-forcing threshold from 5 to 10 (~200ms to ~400ms) and logger suppressed (prevents premature audio truncation; removable when chatterbox fixes issues [#327](https://github.com/resemble-ai/chatterbox/issues/327), [#435](https://github.com/resemble-ai/chatterbox/issues/435))
 - `torchaudio.backend.{no_backend,soundfile_backend,sox_io_backend}.__getattr__` replaced with silent delegators (deprecated I/O backend dispatch warning triggered by Streamlit's file watcher; removable when torchaudio drops these stub modules)
 
 ## Resources
