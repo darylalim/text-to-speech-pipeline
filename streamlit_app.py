@@ -71,6 +71,41 @@ _LlamaConfig.__init__ = _llama_config_eager_attn  # type: ignore[method-assign]
 
 from chatterbox.mtl_tts import SUPPORTED_LANGUAGES, ChatterboxMultilingualTTS  # noqa: E402
 
+# Patch: chatterbox passes past_key_values=None on the first forward call, which causes
+# LlamaModel to return the legacy tuple cache format. Subsequent calls then pass tuples
+# back in, triggering a deprecation warning on every generation step. Wrapping the forward
+# method to ensure past_key_values is always a DynamicCache avoids the legacy path entirely.
+# Remove when chatterbox adopts the Cache API.
+try:
+    from chatterbox.models.t3.inference.t3_hf_backend import (  # noqa: E402
+        T3HuggingfaceBackend as _T3Backend,
+    )
+    from transformers.cache_utils import DynamicCache as _DynamicCache  # noqa: E402
+
+    _original_t3_forward = _T3Backend.forward.__wrapped__  # type: ignore[attr-defined]
+
+    def _t3_forward_dynamic_cache(
+        self: _T3Backend,  # type: ignore[type-arg]
+        inputs_embeds: torch.Tensor,
+        past_key_values: _DynamicCache
+        | tuple[tuple[torch.Tensor, ...], ...]
+        | None = None,
+        **kwargs: object,
+    ) -> object:
+        if not isinstance(past_key_values, _DynamicCache):
+            past_key_values = (
+                _DynamicCache()
+                if past_key_values is None
+                else _DynamicCache.from_legacy_cache(past_key_values)
+            )
+        return _original_t3_forward(
+            self, inputs_embeds, past_key_values=past_key_values, **kwargs
+        )
+
+    _T3Backend.forward = torch.inference_mode()(_t3_forward_dynamic_cache)  # type: ignore[method-assign]
+except (ImportError, AttributeError):
+    pass
+
 import torchaudio.backend._no_backend  # noqa: E402
 import torchaudio.backend._sox_io_backend  # noqa: E402
 import torchaudio.backend.no_backend  # noqa: E402

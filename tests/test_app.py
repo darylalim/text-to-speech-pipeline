@@ -130,6 +130,13 @@ class TestDependencyPatches:
             GenerationConfig(output_attentions=True)
         assert not any("output_attentions" in str(w.message) for w in caught)
 
+    def test_dynamic_cache_avoids_legacy_path(self) -> None:
+        from transformers.cache_utils import Cache, DynamicCache
+
+        cache = DynamicCache()
+        assert isinstance(cache, Cache)
+        assert len(cache) == 0
+
 
 class TestModelName:
     def test_model_name(self) -> None:
