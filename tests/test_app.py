@@ -103,6 +103,14 @@ class TestDependencyPatches:
             warnings.simplefilter("error")
             hasattr(torchaudio.backend.sox_io_backend, "__path__")
 
+    def test_sdp_kernel_no_warning(self) -> None:
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            with torch.backends.cuda.sdp_kernel(
+                enable_flash=True, enable_math=True, enable_mem_efficient=True
+            ):
+                pass
+
     def test_generation_config_output_attentions_no_warning(self) -> None:
         from transformers import GenerationConfig
 

@@ -2,13 +2,16 @@ import io
 import tempfile
 import time
 import warnings
+from contextlib import contextmanager
 from functools import partial
 from pathlib import Path
+from typing import Generator
 
 import numpy as np
 import streamlit as st
 import torch
 import torch.nn as nn
+import torch.nn.attention as _torch_attention
 import scipy.io.wavfile as wavfile
 
 import diffusers.models.lora as _diffusers_lora
@@ -16,6 +19,25 @@ import diffusers.models.lora as _diffusers_lora
 # Patch: chatterbox-tts pins diffusers 0.29 which exposes deprecated LoRACompatibleLinear.
 # Remove this patch (and the peft dependency) when chatterbox upgrades diffusers.
 _diffusers_lora.LoRACompatibleLinear = nn.Linear  # type: ignore[attr-defined]
+
+# Patch: chatterbox uses deprecated torch.backends.cuda.sdp_kernel() context manager.
+# Replace with a wrapper around torch.nn.attention.sdpa_kernel().
+# Remove when chatterbox updates to the new API.
+_SDP_BACKEND_MAP = {
+    "enable_flash": _torch_attention.SDPBackend.FLASH_ATTENTION,
+    "enable_math": _torch_attention.SDPBackend.MATH,
+    "enable_mem_efficient": _torch_attention.SDPBackend.EFFICIENT_ATTENTION,
+}
+
+
+@contextmanager
+def _sdp_kernel_compat(**kwargs: bool) -> Generator[None, None, None]:
+    backends = [b for k, b in _SDP_BACKEND_MAP.items() if kwargs.get(k, False)]
+    with _torch_attention.sdpa_kernel(backends):
+        yield
+
+
+torch.backends.cuda.sdp_kernel = _sdp_kernel_compat  # type: ignore[assignment]
 
 # Patch: chatterbox sets output_attentions=True on the LlamaConfig for attention alignment,
 # which propagates to GenerationConfig and triggers a spurious warning about
