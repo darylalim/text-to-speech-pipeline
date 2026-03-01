@@ -1,7 +1,14 @@
+import warnings
 from unittest.mock import MagicMock, patch
 
 import numpy as np
 import torch
+
+import diffusers.models.lora
+import torch.nn as nn
+import torchaudio.backend.no_backend
+import torchaudio.backend.soundfile_backend
+import torchaudio.backend.sox_io_backend
 
 from streamlit_app import (
     LANGUAGES,
@@ -75,6 +82,26 @@ class TestLanguages:
 
     def test_language_count(self) -> None:
         assert len(LANGUAGES) == 23
+
+
+class TestDependencyPatches:
+    def test_lora_compatible_linear_replaced_with_nn_linear(self) -> None:
+        assert diffusers.models.lora.LoRACompatibleLinear is nn.Linear
+
+    def test_torchaudio_no_backend_getattr_no_warning(self) -> None:
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            hasattr(torchaudio.backend.no_backend, "__path__")
+
+    def test_torchaudio_soundfile_backend_getattr_no_warning(self) -> None:
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            hasattr(torchaudio.backend.soundfile_backend, "__path__")
+
+    def test_torchaudio_sox_io_backend_getattr_no_warning(self) -> None:
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            hasattr(torchaudio.backend.sox_io_backend, "__path__")
 
 
 class TestModelName:
