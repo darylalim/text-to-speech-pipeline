@@ -70,7 +70,7 @@ class TestLoadPipeline:
         from kokoro import KPipeline
 
         load_pipeline("a")
-        KPipeline.assert_called_with(lang_code="a")
+        KPipeline.assert_called_with(lang_code="a")  # type: ignore[union-attribute]
 
 
 class TestGenerateSpeech:

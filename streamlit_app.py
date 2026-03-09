@@ -32,8 +32,8 @@ def get_voices(lang_code: str) -> list[str]:
     entries = list_repo_tree(REPO_ID, path_in_repo="voices")
     voices = []
     for entry in entries:
-        name = entry.rfilename
-        if name.endswith(".pt") and name.startswith("voices/"):
+        name = getattr(entry, "rfilename", None)
+        if name is not None and name.endswith(".pt") and name.startswith("voices/"):
             voice = name.removeprefix("voices/").removesuffix(".pt")
             if len(voice) >= 2 and voice[0] == lang_code:
                 voices.append(voice)
@@ -54,7 +54,7 @@ def generate_speech(
     chunks = list(pipeline(text, voice=voice, speed=speed))
     if not chunks:
         raise ValueError("No audio generated. Check your input text.")
-    audio = np.concatenate([c.audio for c in chunks])
+    audio = np.concatenate([c.audio for c in chunks])  # type: ignore[no-matching-overload]
     return audio.astype(np.float32)
 
 
