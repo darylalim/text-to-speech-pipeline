@@ -1,239 +1,63 @@
 import io
-import logging
-import tempfile
+import os
 import time
-import warnings
-from contextlib import contextmanager
-from functools import partial
-from pathlib import Path
-from typing import Generator
+
+os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
 
 import numpy as np
-import streamlit as st
-import torch
-import torch.nn as nn
-import torch.nn.attention as _torch_attention
 import scipy.io.wavfile as wavfile
+import streamlit as st
+from huggingface_hub import list_repo_tree
+from kokoro import KPipeline
 
-import diffusers.models.lora as _diffusers_lora
+MODEL_NAME = "Kokoro-82M"
+SAMPLE_RATE = 24000
+REPO_ID = "hexgrad/Kokoro-82M"
 
-# Patch: chatterbox-tts pins diffusers 0.29 which exposes deprecated LoRACompatibleLinear.
-# Remove this patch (and the peft dependency) when chatterbox upgrades diffusers.
-_diffusers_lora.LoRACompatibleLinear = nn.Linear  # type: ignore[attr-defined]
-
-# Patch: chatterbox uses deprecated torch.backends.cuda.sdp_kernel() context manager.
-# Replace with a wrapper around torch.nn.attention.sdpa_kernel().
-# Remove when chatterbox updates to the new API.
-_SDP_BACKEND_MAP = {
-    "enable_flash": _torch_attention.SDPBackend.FLASH_ATTENTION,
-    "enable_math": _torch_attention.SDPBackend.MATH,
-    "enable_mem_efficient": _torch_attention.SDPBackend.EFFICIENT_ATTENTION,
+LANGUAGES: dict[str, str] = {
+    "American English": "a",
+    "British English": "b",
+    "Spanish": "e",
+    "French": "f",
+    "Hindi": "h",
+    "Italian": "i",
+    "Japanese": "j",
+    "Brazilian Portuguese": "p",
+    "Mandarin Chinese": "z",
 }
 
 
-@contextmanager
-def _sdp_kernel_compat(**kwargs: bool) -> Generator[None, None, None]:
-    backends = [b for k, b in _SDP_BACKEND_MAP.items() if kwargs.get(k, False)]
-    with _torch_attention.sdpa_kernel(backends):
-        yield
-
-
-torch.backends.cuda.sdp_kernel = _sdp_kernel_compat  # type: ignore[assignment]
-
-# Patch: chatterbox sets output_attentions=True on the LlamaConfig for attention alignment,
-# which propagates to GenerationConfig and triggers a spurious warning about
-# return_dict_in_generate. Chatterbox uses manual forward passes, not model.generate(),
-# so the GenerationConfig value is never used. Remove when chatterbox fixes this.
-warnings.filterwarnings(
-    "ignore",
-    message=r"`return_dict_in_generate` is NOT set to `True`, but `output_attentions` is",
-    category=UserWarning,
-    module=r"transformers\.generation\.configuration_utils",
-)
-
-# Patch: chatterbox passes output_attentions=True to every LlamaModel forward call, which
-# forces SDPA attention to fall back to eager on each step. Default LlamaConfig to eager so
-# the model uses it directly without the fallback warning. This also avoids a breaking change
-# in transformers v5.0.0 where the automatic fallback will be removed.
-# Remove when chatterbox passes attn_implementation="eager" itself.
-from transformers import LlamaConfig as _LlamaConfig  # noqa: E402
-
-_original_llama_config_init = _LlamaConfig.__init__
-
-
-def _llama_config_eager_attn(
-    self: _LlamaConfig, *args: object, **kwargs: object
-) -> None:
-    kwargs.setdefault("attn_implementation", "eager")
-    _original_llama_config_init(self, *args, **kwargs)
-
-
-_LlamaConfig.__init__ = _llama_config_eager_attn  # type: ignore[method-assign]
-
-from chatterbox.mtl_tts import SUPPORTED_LANGUAGES, ChatterboxMultilingualTTS  # noqa: E402
-
-# Patch: chatterbox passes past_key_values=None on the first forward call, which causes
-# LlamaModel to return the legacy tuple cache format. Subsequent calls then pass tuples
-# back in, triggering a deprecation warning on every generation step. Wrapping the forward
-# method to ensure past_key_values is always a DynamicCache avoids the legacy path entirely.
-# Remove when chatterbox adopts the Cache API.
-try:
-    from chatterbox.models.t3.inference.t3_hf_backend import (  # noqa: E402
-        T3HuggingfaceBackend as _T3Backend,
-    )
-    from transformers.cache_utils import DynamicCache as _DynamicCache  # noqa: E402
-
-    _original_t3_forward = _T3Backend.forward.__wrapped__  # type: ignore[attr-defined]
-
-    def _t3_forward_dynamic_cache(
-        self: _T3Backend,  # type: ignore[type-arg]
-        inputs_embeds: torch.Tensor,
-        past_key_values: _DynamicCache
-        | tuple[tuple[torch.Tensor, ...], ...]
-        | None = None,
-        **kwargs: object,
-    ) -> object:
-        if not isinstance(past_key_values, _DynamicCache):
-            past_key_values = (
-                _DynamicCache()
-                if past_key_values is None
-                else _DynamicCache.from_legacy_cache(past_key_values)
-            )
-        return _original_t3_forward(
-            self, inputs_embeds, past_key_values=past_key_values, **kwargs
-        )
-
-    _T3Backend.forward = torch.inference_mode()(_t3_forward_dynamic_cache)  # type: ignore[method-assign]
-except (ImportError, AttributeError):
-    pass
-
-# Patch: chatterbox's AlignmentStreamAnalyzer forces EOS when its long_tail heuristic
-# fires (attention on final text tokens accumulating >= 5 after text completion, ~200ms).
-# This threshold is too aggressive and truncates audio prematurely, especially with
-# short inputs. Wrap step() to raise the effective threshold to 10 (~400ms) while
-# preserving EOS forcing for alignment_repetition and token_repetition.
-# Also suppress the noisy alignment analyzer logger.
-# Remove when chatterbox fixes upstream (issues #327, #435).
-logging.getLogger("chatterbox.models.t3.inference.alignment_stream_analyzer").setLevel(
-    logging.ERROR
-)
-
-try:
-    from chatterbox.models.t3.inference.alignment_stream_analyzer import (  # noqa: E402
-        AlignmentStreamAnalyzer as _AlignmentStreamAnalyzer,
-    )
-
-    _LONG_TAIL_THRESHOLD = 10
-
-    _original_asa_step = _AlignmentStreamAnalyzer.step
-
-    def _asa_step_relaxed_long_tail(
-        self: _AlignmentStreamAnalyzer,
-        logits: torch.Tensor,
-        next_token: int | torch.Tensor | None = None,
-    ) -> torch.Tensor:
-        saved_logits = logits.clone()
-        result = _original_asa_step(self, logits, next_token)
-
-        # If EOS was not forced, return as-is
-        if result[..., self.eos_idx].max().item() != 2**15:
-            return result
-
-        # EOS was forced. Preserve for alignment_repetition or token_repetition.
-        if self.completed_at is None:
-            return result
-
-        A = self.alignment
-        alignment_repetition = self.complete and (
-            A[self.completed_at :, :-5].max(dim=1).values.sum() > 5
-        )
-        token_repetition = (
-            len(self.generated_tokens) >= 3
-            and len(set(self.generated_tokens[-2:])) == 1
-        )
-
-        if alignment_repetition or token_repetition:
-            return result
-
-        # Only long_tail triggered. Re-check with raised threshold.
-        if A[self.completed_at :, -3:].sum(dim=0).max() >= _LONG_TAIL_THRESHOLD:
-            return result
-
-        # Below raised threshold — undo EOS forcing
-        return saved_logits
-
-    _AlignmentStreamAnalyzer.step = _asa_step_relaxed_long_tail  # type: ignore[method-assign]
-except (ImportError, AttributeError):
-    pass
-
-import torchaudio.backend._no_backend  # noqa: E402
-import torchaudio.backend._sox_io_backend  # noqa: E402
-import torchaudio.backend.no_backend  # noqa: E402
-import torchaudio.backend.soundfile_backend  # noqa: E402
-import torchaudio.backend.sox_io_backend  # noqa: E402
-from torchaudio._backend import soundfile_backend as _ta_soundfile_backend  # noqa: E402
-
-# Patch: torchaudio 2.x backend stub modules define __getattr__ that emits a deprecation
-# warning on any attribute access. Streamlit's file watcher triggers this via hasattr checks.
-# Replace with silent delegators. Remove when torchaudio drops these stub modules.
-torchaudio.backend.no_backend.__getattr__ = lambda name: getattr(  # type: ignore[attr-defined]
-    torchaudio.backend._no_backend, name
-)
-torchaudio.backend.soundfile_backend.__getattr__ = lambda name: getattr(  # type: ignore[attr-defined]
-    _ta_soundfile_backend, name
-)
-torchaudio.backend.sox_io_backend.__getattr__ = lambda name: getattr(  # type: ignore[attr-defined]
-    torchaudio.backend._sox_io_backend, name
-)
-
-MODEL_NAME = "Chatterbox Multilingual"
-
-LANGUAGES: dict[str, str] = {name: code for code, name in SUPPORTED_LANGUAGES.items()}
-
-
-def get_device() -> str:
-    if torch.backends.mps.is_available():
-        return "mps"
-    if torch.cuda.is_available():
-        return "cuda"
-    return "cpu"
+@st.cache_data
+def get_voices(lang_code: str) -> list[str]:
+    entries = list_repo_tree(REPO_ID, path_in_repo="voices")
+    voices = []
+    for entry in entries:
+        name = entry.rfilename
+        if name.endswith(".pt") and name.startswith("voices/"):
+            voice = name.removeprefix("voices/").removesuffix(".pt")
+            if len(voice) >= 2 and voice[1] == lang_code:
+                voices.append(voice)
+    return sorted(voices)
 
 
 @st.cache_resource
-def load_model(device: str) -> ChatterboxMultilingualTTS:
-    _torch_load = torch.load
-    torch.load = partial(_torch_load, map_location=torch.device(device))  # type: ignore[assignment]
-    try:
-        return ChatterboxMultilingualTTS.from_pretrained(device=torch.device(device))
-    finally:
-        torch.load = _torch_load
+def load_pipeline(lang_code: str) -> KPipeline:
+    return KPipeline(lang_code=lang_code)
 
 
 def generate_speech(
     text: str,
-    language_id: str,
-    model: ChatterboxMultilingualTTS,
-    audio_prompt_path: str | None = None,
-    cfg_weight: float = 0.5,
-    exaggeration: float = 0.5,
-) -> tuple[int, np.ndarray]:
-    wav = model.generate(
-        text,
-        language_id=language_id,
-        audio_prompt_path=audio_prompt_path,
-        cfg_weight=cfg_weight,
-        exaggeration=exaggeration,
-    )
-    return model.sr, wav.squeeze(0).float().numpy()
+    voice: str,
+    pipeline: KPipeline,
+    speed: float = 1.0,
+) -> np.ndarray:
+    chunks = list(pipeline(text, voice=voice, speed=speed))
+    audio = np.concatenate([c.audio for c in chunks])
+    return audio.astype(np.float32)
 
 
 st.title("Text to Speech Pipeline")
-st.write("Generate multilingual speech with Chatterbox by Resemble AI.")
-
-device = get_device()
-
-with st.spinner(f"Loading model on {device.upper()}..."):
-    model = load_model(device)
+st.write("Generate multilingual speech with Kokoro.")
 
 st.subheader("Text")
 text_input = st.text_area(
@@ -254,71 +78,48 @@ with voice_col1:
         help="Select a language for speech generation.",
     )
 
-language_id = LANGUAGES[language]
+lang_code = LANGUAGES[language]
 
 with voice_col2:
-    audio_file = st.file_uploader(
-        "Reference Audio (optional)",
-        type=["wav", "mp3"],
-        help="Upload a ~10s audio clip to clone a voice. Leave empty for default voice.",
+    voices = get_voices(lang_code)
+    voice = st.selectbox(
+        "Voice",
+        options=voices,
+        help="Select a voice. Names starting with 'f' are female, 'm' are male.",
     )
 
 st.subheader("Style")
-style_col1, style_col2 = st.columns(2)
+speed = st.slider(
+    "Speed",
+    min_value=0.5,
+    max_value=2.0,
+    value=1.0,
+    step=0.1,
+    help="Speech rate multiplier. 1.0 is normal speed.",
+)
 
-with style_col1:
-    cfg_weight = st.slider(
-        "CFG Weight",
-        min_value=0.0,
-        max_value=1.0,
-        value=0.5,
-        step=0.1,
-        help="Classifier-free guidance strength. Lower values may improve pacing for fast speakers.",
-    )
-
-with style_col2:
-    exaggeration = st.slider(
-        "Exaggeration",
-        min_value=0.0,
-        max_value=1.0,
-        value=0.5,
-        step=0.1,
-        help="Speech expressiveness intensity. Higher values produce more expressive speech.",
-    )
+with st.spinner("Loading model..."):
+    pipeline = load_pipeline(lang_code)
 
 if st.button("Generate", type="primary"):
     if text_input.strip():
         try:
-            audio_prompt_path: str | None = None
-            if audio_file is not None:
-                suffix = Path(audio_file.name).suffix
-                with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-                    tmp.write(audio_file.read())
-                    audio_prompt_path = tmp.name
-
             with st.spinner("Generating speech..."):
                 start = time.perf_counter()
-                sampling_rate, audio_array = generate_speech(
-                    text_input,
-                    language_id,
-                    model,
-                    audio_prompt_path=audio_prompt_path,
-                    cfg_weight=cfg_weight,
-                    exaggeration=exaggeration,
-                )
+                audio_array = generate_speech(text_input, voice, pipeline, speed=speed)
                 eval_duration = round(time.perf_counter() - start, 2)
-                output_duration = len(audio_array) / sampling_rate
+                output_duration = len(audio_array) / SAMPLE_RATE
 
-            st.audio(audio_array, sample_rate=sampling_rate)
+            st.audio(audio_array, sample_rate=SAMPLE_RATE)
 
             col1, col2, col3, col4 = st.columns(4)
-            col1.metric("Model", "Chatterbox")
+            col1.metric("Model", MODEL_NAME)
             col2.metric("Input Characters", len(text_input))
             col3.metric("Output Duration", f"{output_duration:.2f}s")
             col4.metric("Generation Time", f"{eval_duration}s")
 
             wav_buffer = io.BytesIO()
-            wavfile.write(wav_buffer, sampling_rate, audio_array)
+            wavfile.write(wav_buffer, SAMPLE_RATE, audio_array)
             st.download_button(
                 label="Download Audio",
                 data=wav_buffer.getvalue(),
