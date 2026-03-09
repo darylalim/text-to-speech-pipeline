@@ -1,15 +1,16 @@
 [project]
 name = "text-to-speech-pipeline"
-version = "0.2.0"
-description = "Streamlit web app for multilingual text-to-speech using Chatterbox"
+version = "0.3.0"
+description = "Streamlit web app for multilingual text-to-speech using Kokoro"
 requires-python = ">=3.12"
 dependencies = [
-    "chatterbox-tts",
+    "kokoro>=0.9.4",
+    "misaki[ja]",
+    "misaki[zh]",
     "numpy>=1.26.0",
-    "peft",
+    "soundfile",
     "streamlit",
     "scipy",
-    "setuptools<71",
     "torch",
 ]
 
@@ -19,15 +20,6 @@ dev = [
     "ruff",
     "ty",
 ]
-
-[tool.uv]
-constraint-dependencies = [
-    "ml-dtypes>=0.4.0",
-    "pandas>=2.2.0",
-]
-
-[tool.uv.extra-build-dependencies]
-pkuseg = ["numpy"]
 
 [tool.ruff.lint.isort]
 combine-as-imports = true
