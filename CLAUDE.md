@@ -4,9 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Streamlit web app for generating multilingual speech using [Chatterbox Multilingual](https://github.com/resemble-ai/chatterbox), a text-to-speech model by [Resemble AI](https://www.resemble.ai/).
+Streamlit web app for generating multilingual speech using [Kokoro-82M](https://github.com/hexgrad/kokoro), a lightweight text-to-speech model by [Hexgrad](https://github.com/hexgrad).
 
 ## Setup
+
+Requires `espeak-ng` system dependency.
 
 ```bash
 uv sync --group dev
@@ -28,7 +30,9 @@ uv run streamlit run streamlit_app.py
 
 ## Dependencies
 
-**Runtime:** `chatterbox-tts`, `numpy`, `peft`, `scipy`, `setuptools`, `streamlit`, `torch`
+**System:** `espeak-ng`
+
+**Runtime:** `kokoro>=0.9.4`, `misaki[ja]`, `misaki[zh]`, `numpy`, `soundfile`, `streamlit`, `scipy`, `torch`
 
 **Dev:** `ruff`, `ty`, `pytest`
 
@@ -40,50 +44,44 @@ uv run streamlit run streamlit_app.py
 
 ### Files
 
-- `streamlit_app.py` — single-file app with text input, language selection, voice cloning, style controls, and audio playback
-- `tests/conftest.py` — mocks `streamlit` and `chatterbox` for import
+- `streamlit_app.py` — single-file app with text input, language/voice selection, speed control, and audio playback
+- `tests/conftest.py` — mocks `streamlit`, `kokoro`, and `huggingface_hub` for import
 - `tests/test_app.py` — unit tests
 
 ### Model
 
-[Chatterbox Multilingual](https://github.com/resemble-ai/chatterbox) (`ChatterboxMultilingualTTS` from `chatterbox-tts` package), 500M params.
+[Kokoro-82M](https://github.com/hexgrad/kokoro) (`KPipeline` from `kokoro` package), 82M params. Sample rate: 24000 Hz.
 
 ### Supported Languages
 
-ar, da, de, el, en, es, fi, fr, he, hi, it, ja, ko, ms, nl, no, pl, pt, ru, sv, sw, tr, zh — 23 languages
+a=American English, b=British English, e=Spanish, f=French, h=Hindi, i=Italian, j=Japanese, p=Brazilian Portuguese, z=Mandarin Chinese — 9 languages
+
+### Voice Discovery
+
+Voices are discovered dynamically from the HuggingFace Hub (`hexgrad/Kokoro-82M`) via `huggingface_hub.list_repo_tree`. Voice files follow the naming convention `{lang}{gender}_{name}` (e.g. `af_heart` — American English, female, "heart"). Voices are cached per language code with `@st.cache_data`.
 
 ### Performance
 
 - Best available device: MPS > CUDA > CPU
-- `@st.cache_resource` to cache model
+- `PYTORCH_ENABLE_MPS_FALLBACK=1` set via `os.environ` for MPS compatibility
+- `@st.cache_resource` to cache pipeline per language
+- `@st.cache_data` to cache voice lists
 - `time.perf_counter()` for timing
 
 ### UI
 
 - Text input (max 300 characters)
-- Language selection (23 languages via `SUPPORTED_LANGUAGES` from `chatterbox.mtl_tts`)
-- Optional voice cloning via file upload (~10s WAV/MP3 reference audio)
-- Style sliders: CFG Weight (0.0–1.0), Exaggeration (0.0–1.0)
+- Language selection (9 languages via `LANGUAGES` dict)
+- Voice selector (dynamically populated from HuggingFace Hub)
+- Speed slider (0.5–2.0, default 1.0)
 - Generated audio displayed in browser player via `st.audio`
 - WAV download via `st.download_button` (saved with `scipy.io.wavfile.write`)
 - Metrics via `st.metric`: model name, input characters, output duration, generation time
 - Errors shown with `st.exception()`
 - No session state for audio persistence
 
-### Dependency Patches
-
-Monkey-patches applied at import time to fix warnings and bugs from transitive dependencies. Remove when `chatterbox-tts` upgrades its pinned versions.
-
-- `diffusers.models.lora.LoRACompatibleLinear` replaced with `torch.nn.Linear` (PEFT backend migration; removable when chatterbox upgrades diffusers past 0.29)
-- `GenerationConfig` warning for `return_dict_in_generate`/`output_attentions` suppressed via `warnings.filterwarnings` (removable when chatterbox stops setting `output_attentions=True` on LlamaConfig)
-- `torch.backends.cuda.sdp_kernel` replaced with `sdpa_kernel` wrapper (deprecated context manager; removable when chatterbox updates to new API)
-- `LlamaConfig.__init__` patched to default `attn_implementation="eager"` (avoids SDPA-to-eager fallback warning; removable when chatterbox passes `attn_implementation="eager"` itself)
-- `T3HuggingfaceBackend.forward` wrapped to convert `past_key_values` to `DynamicCache` (avoids legacy tuple cache deprecation; removable when chatterbox adopts Cache API)
-- `AlignmentStreamAnalyzer.step` wrapped to raise `long_tail` EOS-forcing threshold from 5 to 10 (~200ms to ~400ms) and logger suppressed (prevents premature audio truncation; removable when chatterbox fixes issues [#327](https://github.com/resemble-ai/chatterbox/issues/327), [#435](https://github.com/resemble-ai/chatterbox/issues/435))
-- `torchaudio.backend.{no_backend,soundfile_backend,sox_io_backend}.__getattr__` replaced with silent delegators (deprecated I/O backend dispatch warning triggered by Streamlit's file watcher; removable when torchaudio drops these stub modules)
-
 ## Resources
 
-- [GitHub Repo](https://github.com/resemble-ai/chatterbox)
-- [Hugging Face](https://huggingface.co/ResembleAI/chatterbox)
-- [PyPI](https://pypi.org/project/chatterbox-tts/)
+- [GitHub Repo](https://github.com/hexgrad/kokoro)
+- [Hugging Face](https://huggingface.co/hexgrad/Kokoro-82M)
+- [PyPI](https://pypi.org/project/kokoro/)
