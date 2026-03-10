@@ -91,7 +91,7 @@ class TestLoadPipeline:
         from kokoro import KPipeline
 
         load_pipeline("a")
-        KPipeline.assert_called_with(lang_code="a")  # type: ignore[union-attribute]
+        KPipeline.assert_called_with(lang_code="a", repo_id=REPO_ID)  # type: ignore[union-attribute]
 
 
 class TestGenerateSpeech:
