@@ -4,6 +4,7 @@ import numpy as np
 import pytest
 
 from streamlit_app import (
+    HISTORY_MAX,
     LANGUAGES,
     MODEL_NAME,
     REPO_ID,
@@ -49,6 +50,9 @@ class TestModelConstants:
 
     def test_repo_id(self) -> None:
         assert REPO_ID == "hexgrad/Kokoro-82M"
+
+    def test_history_max(self) -> None:
+        assert HISTORY_MAX == 20
 
 
 class TestGetVoices:
