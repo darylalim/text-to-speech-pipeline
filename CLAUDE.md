@@ -64,7 +64,7 @@ Voices are discovered dynamically from the HuggingFace Hub (`hexgrad/Kokoro-82M`
 
 - Device selection handled internally by Kokoro; `PYTORCH_ENABLE_MPS_FALLBACK=1` set via `os.environ` for Apple Silicon compatibility
 - `@st.cache_resource` to cache pipeline per language
-- `@st.cache_data` to cache voice lists
+- `@st.cache_data(ttl=3600)` to cache voice lists (1-hour TTL)
 - `time.perf_counter()` for timing
 
 ### UI

@@ -4,7 +4,7 @@ from unittest.mock import MagicMock
 # Mock streamlit to prevent UI initialization on import
 _st = MagicMock()
 _st.cache_resource = lambda f: f
-_st.cache_data = lambda f: f
+_st.cache_data = lambda **_kw: lambda f: f
 _st.selectbox.side_effect = lambda label, **_kw: {
     "Language": "American English",
     "Voice": "af_heart",

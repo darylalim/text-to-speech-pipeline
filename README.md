@@ -5,7 +5,7 @@ Streamlit web app for generating multilingual speech using [Kokoro-82M](https://
 ## Features
 
 - 9 supported languages (American English, British English, Spanish, French, Hindi, Italian, Japanese, Brazilian Portuguese, Mandarin Chinese)
-- 54 voices discovered dynamically from HuggingFace Hub
+- Voices discovered dynamically from HuggingFace Hub
 - Adjustable speech speed (0.5x–2.0x)
 - In-browser audio playback and WAV download
 - Generation metrics: model name, input characters, output duration, generation time

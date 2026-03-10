@@ -27,7 +27,7 @@ LANGUAGES: dict[str, str] = {
 }
 
 
-@st.cache_data
+@st.cache_data(ttl=3600)
 def get_voices(lang_code: str) -> list[str]:
     entries = list_repo_tree(REPO_ID, path_in_repo="voices")
     voices = []
@@ -54,6 +54,7 @@ def generate_speech(
     chunks = list(pipeline(text, voice=voice, speed=speed))
     if not chunks:
         raise ValueError("No audio generated. Check your input text.")
+    # ty cannot infer audio type from KPipeline generator output
     audio = np.concatenate([c.audio for c in chunks])  # type: ignore[no-matching-overload]
     return audio.astype(np.float32)
 
