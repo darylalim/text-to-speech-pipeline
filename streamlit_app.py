@@ -60,6 +60,16 @@ def generate_speech(
     return audio.astype(np.float32)
 
 
+def add_to_history(
+    history: list[list[dict[str, object]]],
+    entry: list[dict[str, object]],
+    max_entries: int = HISTORY_MAX,
+) -> None:
+    history.insert(0, entry)
+    if len(history) > max_entries:
+        history.pop()
+
+
 st.title("Text to Speech Pipeline")
 st.write("Generate multilingual speech with Kokoro.")
 
