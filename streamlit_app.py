@@ -79,12 +79,13 @@ def render_output(results: list[dict[str, object]]) -> None:
         col2.metric("Input Characters", len(str(results[0]["text"])))
         for result in results:
             st.markdown(f"### {result['voice']}")
-            st.audio(result["audio"], sample_rate=SAMPLE_RATE)
+            audio = np.asarray(result["audio"])
+            st.audio(audio, sample_rate=SAMPLE_RATE)
             mc1, mc2 = st.columns(2)
             mc1.metric("Output Duration", f"{result['duration']:.2f}s")
             mc2.metric("Generation Time", f"{result['generation_time']}s")
             wav_buffer = io.BytesIO()
-            wavfile.write(wav_buffer, SAMPLE_RATE, result["audio"])  # type: ignore[arg-type]
+            wavfile.write(wav_buffer, SAMPLE_RATE, audio)
             st.download_button(
                 label=f"Download {result['voice']}",
                 data=wav_buffer.getvalue(),
@@ -94,14 +95,15 @@ def render_output(results: list[dict[str, object]]) -> None:
             )
     else:
         result = results[0]
-        st.audio(result["audio"], sample_rate=SAMPLE_RATE)
+        audio = np.asarray(result["audio"])
+        st.audio(audio, sample_rate=SAMPLE_RATE)
         col1, col2, col3, col4 = st.columns(4)
         col1.metric("Model", MODEL_NAME)
         col2.metric("Input Characters", len(str(result["text"])))
         col3.metric("Output Duration", f"{result['duration']:.2f}s")
         col4.metric("Generation Time", f"{result['generation_time']}s")
         wav_buffer = io.BytesIO()
-        wavfile.write(wav_buffer, SAMPLE_RATE, result["audio"])  # type: ignore[arg-type]
+        wavfile.write(wav_buffer, SAMPLE_RATE, audio)
         st.download_button(
             label="Download Audio",
             data=wav_buffer.getvalue(),
