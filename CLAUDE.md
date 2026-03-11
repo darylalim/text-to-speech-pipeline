@@ -32,7 +32,7 @@ uv run streamlit run streamlit_app.py
 
 **System:** `espeak-ng`
 
-**Runtime:** `kokoro>=0.9.4`, `misaki[ja]`, `misaki[zh]`, `numpy`, `soundfile`, `streamlit`, `scipy`, `torch`
+**Runtime:** `en-core-web-sm` (pinned URL; update wheel URL if spaCy is upgraded), `kokoro>=0.9.4`, `misaki[ja]`, `misaki[zh]`, `numpy`, `soundfile`, `streamlit`, `scipy`, `torch`
 
 **Dev:** `ruff`, `ty`, `pytest`
 

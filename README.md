@@ -25,6 +25,8 @@ uv sync --group dev
 uv run streamlit run streamlit_app.py
 ```
 
+> **Note:** The spaCy model `en_core_web_sm` (required for English G2P) is installed automatically via `uv sync`.
+
 ## Development
 
 - **Lint**: `uv run ruff check .`
