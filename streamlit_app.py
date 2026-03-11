@@ -13,6 +13,7 @@ from kokoro import KPipeline
 MODEL_NAME = "Kokoro-82M"
 SAMPLE_RATE = 24000
 REPO_ID = "hexgrad/Kokoro-82M"
+HISTORY_MAX = 20
 
 LANGUAGES: dict[str, str] = {
     "American English": "a",
@@ -59,6 +60,79 @@ def generate_speech(
     return audio.astype(np.float32)
 
 
+def add_to_history(
+    history: list[list[dict[str, object]]],
+    entry: list[dict[str, object]],
+    max_entries: int = HISTORY_MAX,
+) -> None:
+    history.insert(0, entry)
+    if len(history) > max_entries:
+        history.pop()
+
+
+def render_output(results: list[dict[str, object]]) -> None:
+    if not results:
+        return
+    if len(results) > 1:
+        col1, col2 = st.columns(2)
+        col1.metric("Model", MODEL_NAME)
+        col2.metric("Input Characters", len(str(results[0]["text"])))
+        for result in results:
+            st.markdown(f"### {result['voice']}")
+            audio = np.asarray(result["audio"])
+            st.audio(audio, sample_rate=SAMPLE_RATE)
+            mc1, mc2 = st.columns(2)
+            mc1.metric("Output Duration", f"{result['duration']:.2f}s")
+            mc2.metric("Generation Time", f"{result['generation_time']}s")
+            wav_buffer = io.BytesIO()
+            wavfile.write(wav_buffer, SAMPLE_RATE, audio)
+            st.download_button(
+                label=f"Download {result['voice']}",
+                data=wav_buffer.getvalue(),
+                file_name=f"speech_{result['voice']}.wav",
+                mime="audio/wav",
+                key=f"download_{result['voice']}",
+            )
+    else:
+        result = results[0]
+        audio = np.asarray(result["audio"])
+        st.audio(audio, sample_rate=SAMPLE_RATE)
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("Model", MODEL_NAME)
+        col2.metric("Input Characters", len(str(result["text"])))
+        col3.metric("Output Duration", f"{result['duration']:.2f}s")
+        col4.metric("Generation Time", f"{result['generation_time']}s")
+        wav_buffer = io.BytesIO()
+        wavfile.write(wav_buffer, SAMPLE_RATE, audio)
+        st.download_button(
+            label="Download Audio",
+            data=wav_buffer.getvalue(),
+            file_name="speech.wav",
+            mime="audio/wav",
+        )
+
+
+if "current_output" not in st.session_state:
+    st.session_state["current_output"] = None
+if "history" not in st.session_state:
+    st.session_state["history"] = []
+
+with st.sidebar:
+    st.header("Generation History")
+    history = st.session_state["history"]
+    if not history:
+        st.caption("No generations yet.")
+    for i, entry in enumerate(history):
+        text = str(entry[0]["text"])
+        text_preview = text[:50] + ("..." if len(text) > 50 else "")
+        voice_names = ", ".join(str(r["voice"]) for r in entry)
+        st.markdown(f"**{text_preview}**")
+        st.caption(voice_names)
+        for result in entry:
+            st.audio(np.asarray(result["audio"]), sample_rate=SAMPLE_RATE)
+        if st.button("Load", key=f"load_{i}"):
+            st.session_state["current_output"] = entry
+
 st.title("Text to Speech Pipeline")
 st.write("Generate multilingual speech with Kokoro.")
 
@@ -66,12 +140,13 @@ st.subheader("Text")
 text_input = st.text_area(
     "Text",
     placeholder="Enter text...",
-    max_chars=300,
-    height=150,
-    help="Maximum 300 characters per generation.",
+    height=200,
+    help="Enter text for speech generation.",
 )
+st.caption(f"{len(text_input)} characters")
 
 st.subheader("Voice")
+compare_mode = st.session_state.get("compare_mode", False)
 voice_col1, voice_col2 = st.columns(2)
 
 with voice_col1:
@@ -85,11 +160,22 @@ lang_code = LANGUAGES[language]
 
 with voice_col2:
     voices = get_voices(lang_code)
-    voice = st.selectbox(
-        "Voice",
-        options=voices,
-        help="The second letter indicates gender: 'f' for female, 'm' for male.",
-    )
+    if compare_mode:
+        selected_voices = st.multiselect(
+            "Voices",
+            options=voices,
+            max_selections=3,
+            help="Select up to 3 voices to compare.",
+        )
+    else:
+        voice = st.selectbox(
+            "Voice",
+            options=voices,
+            help="The second letter indicates gender: 'f' for female, 'm' for male.",
+        )
+        selected_voices = [voice]
+
+st.toggle("Compare Voices", key="compare_mode")
 
 st.subheader("Style")
 speed = st.slider(
@@ -105,32 +191,33 @@ with st.spinner("Loading model..."):
     pipeline = load_pipeline(lang_code)
 
 if st.button("Generate", type="primary"):
-    if text_input.strip():
+    if not text_input.strip():
+        st.warning("Enter text.")
+    elif compare_mode and not selected_voices:
+        st.warning("Select at least one voice.")
+    else:
         try:
+            results = []
             with st.spinner("Generating speech..."):
-                start = time.perf_counter()
-                audio_array = generate_speech(text_input, voice, pipeline, speed=speed)
-                eval_duration = round(time.perf_counter() - start, 2)
-                output_duration = len(audio_array) / SAMPLE_RATE
-
-            st.audio(audio_array, sample_rate=SAMPLE_RATE)
-
-            col1, col2, col3, col4 = st.columns(4)
-            col1.metric("Model", MODEL_NAME)
-            col2.metric("Input Characters", len(text_input))
-            col3.metric("Output Duration", f"{output_duration:.2f}s")
-            col4.metric("Generation Time", f"{eval_duration}s")
-
-            wav_buffer = io.BytesIO()
-            wavfile.write(wav_buffer, SAMPLE_RATE, audio_array)
-            st.download_button(
-                label="Download Audio",
-                data=wav_buffer.getvalue(),
-                file_name="speech.wav",
-                mime="audio/wav",
-            )
-
+                for v in selected_voices:
+                    start = time.perf_counter()
+                    audio_array = generate_speech(text_input, v, pipeline, speed=speed)
+                    gen_time = round(time.perf_counter() - start, 2)
+                    results.append(
+                        {
+                            "audio": audio_array,
+                            "voice": v,
+                            "text": text_input,
+                            "speed": speed,
+                            "duration": len(audio_array) / SAMPLE_RATE,
+                            "generation_time": gen_time,
+                        }
+                    )
+            st.session_state["current_output"] = results
+            add_to_history(st.session_state["history"], results)
+            st.rerun()
         except Exception as e:
             st.exception(e)
-    else:
-        st.warning("Enter text.")
+
+if st.session_state["current_output"] is not None:
+    render_output(st.session_state["current_output"])
