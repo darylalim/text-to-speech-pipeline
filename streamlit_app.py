@@ -129,7 +129,7 @@ with st.sidebar:
         st.markdown(f"**{text_preview}**")
         st.caption(voice_names)
         for result in entry:
-            st.audio(result["audio"], sample_rate=SAMPLE_RATE)
+            st.audio(np.asarray(result["audio"]), sample_rate=SAMPLE_RATE)
         if st.button("Load", key=f"load_{i}"):
             st.session_state["current_output"] = entry
 
