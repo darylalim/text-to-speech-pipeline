@@ -1,4 +1,4 @@
-# Text to Speech Pipeline
+# Kokoro Pipeline
 
 Streamlit web app for generating multilingual speech using [Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M), a lightweight text-to-speech model by [Hexgrad](https://github.com/hexgrad).
 
@@ -6,8 +6,10 @@ Streamlit web app for generating multilingual speech using [Kokoro-82M](https://
 
 - 9 supported languages (American English, British English, Spanish, French, Hindi, Italian, Japanese, Brazilian Portuguese, Mandarin Chinese)
 - Voices discovered dynamically from HuggingFace Hub
+- Voice comparison mode (up to 3 voices side by side)
 - Adjustable speech speed (0.5x–2.0x)
 - In-browser audio playback and WAV download
+- Generation history with sidebar navigation and persistent output (max 20 entries)
 - Generation metrics: model name, input characters, output duration, generation time
 
 ## Requirements
