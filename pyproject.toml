@@ -4,6 +4,7 @@ version = "0.4.0"
 description = "Streamlit web app for multilingual text-to-speech using Kokoro-82M"
 requires-python = ">=3.12"
 dependencies = [
+    "en-core-web-sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl",
     "kokoro>=0.9.4",
     "misaki[ja]",
     "misaki[zh]",
