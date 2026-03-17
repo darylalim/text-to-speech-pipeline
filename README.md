@@ -9,7 +9,9 @@ Streamlit web app for generating multilingual speech using [Kokoro-82M](https://
 - Voice comparison mode (up to 3 voices side by side)
 - Adjustable speech speed (0.5x–2.0x)
 - In-browser audio playback and WAV download
-- Generation history with sidebar navigation and persistent output (max 20 entries)
+- Chunk-by-chunk generation progress (per-voice in compare mode)
+- Phoneme token display with standalone Tokenize button
+- Generation history with sidebar navigation (max 20 entries)
 - Generation metrics: model name, input characters, output duration, generation time
 
 ## Requirements
