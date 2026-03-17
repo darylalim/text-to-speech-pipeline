@@ -109,6 +109,8 @@ def render_output(results: list[dict[str, object]]) -> None:
                 mime="audio/wav",
                 key=f"download_{result['voice']}",
             )
+        with st.expander("Phoneme Tokens"):
+            st.code(results[0].get("phonemes", ""))
     else:
         result = results[0]
         audio = np.asarray(result["audio"])
@@ -126,6 +128,8 @@ def render_output(results: list[dict[str, object]]) -> None:
             file_name="speech.wav",
             mime="audio/wav",
         )
+        with st.expander("Phoneme Tokens"):
+            st.code(result.get("phonemes", ""))
 
 
 if "current_output" not in st.session_state:

@@ -299,7 +299,9 @@ class TestAddToHistory:
 
 class TestRenderOutput:
     @staticmethod
-    def _make_result(voice: str = "af_heart", text: str = "hello") -> dict[str, object]:
+    def _make_result(
+        voice: str = "af_heart", text: str = "hello", phonemes: str = "hɛlˈoʊ"
+    ) -> dict[str, object]:
         return {
             "audio": np.ones(24000, dtype=np.float32),
             "voice": voice,
@@ -307,6 +309,7 @@ class TestRenderOutput:
             "speed": 1.0,
             "duration": 1.0,
             "generation_time": 0.5,
+            "phonemes": phonemes,
         }
 
     def _reset_st_mocks(self) -> None:
@@ -314,6 +317,8 @@ class TestRenderOutput:
         st.download_button.reset_mock()  # type: ignore[union-attribute]
         st.markdown.reset_mock()  # type: ignore[union-attribute]
         st.metric.reset_mock()  # type: ignore[union-attribute]
+        st.expander.reset_mock()  # type: ignore[union-attribute]
+        st.code.reset_mock()  # type: ignore[union-attribute]
 
     def test_empty_results_returns_early(self) -> None:
         self._reset_st_mocks()
@@ -378,3 +383,23 @@ class TestRenderOutput:
         ]
         assert "Download af_heart" in labels
         assert "Download am_adam" in labels
+
+    def test_single_result_shows_phoneme_expander(self) -> None:
+        self._reset_st_mocks()
+        render_output([self._make_result()])
+        st.expander.assert_called_once_with("Phoneme Tokens")  # type: ignore[union-attribute]
+
+    def test_single_result_shows_phonemes_in_code(self) -> None:
+        self._reset_st_mocks()
+        render_output([self._make_result(phonemes="hɛlˈoʊ")])
+        st.code.assert_called_once_with("hɛlˈoʊ")  # type: ignore[union-attribute]
+
+    def test_compare_shows_single_shared_phoneme_expander(self) -> None:
+        self._reset_st_mocks()
+        results = [
+            self._make_result("af_heart", phonemes="hɛlˈoʊ"),
+            self._make_result("af_bella", phonemes="hɛlˈoʊ"),
+        ]
+        render_output(results)
+        st.expander.assert_called_once_with("Phoneme Tokens")  # type: ignore[union-attribute]
+        st.code.assert_called_once_with("hɛlˈoʊ")  # type: ignore[union-attribute]
