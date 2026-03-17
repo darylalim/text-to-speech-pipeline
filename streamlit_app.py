@@ -47,6 +47,20 @@ def load_pipeline(lang_code: str) -> KPipeline:
     return KPipeline(lang_code=lang_code, repo_id=REPO_ID)
 
 
+@st.cache_resource
+def load_tokenizer(lang_code: str) -> KPipeline:
+    return KPipeline(lang_code=lang_code, model=False)
+
+
+def tokenize_text(text: str, lang_code: str) -> str:
+    tokenizer = load_tokenizer(lang_code)
+    phonemes = []
+    for result in tokenizer(text):
+        if result.phonemes:
+            phonemes.append(result.phonemes)
+    return " ".join(phonemes)
+
+
 def generate_speech(
     text: str,
     voice: str,

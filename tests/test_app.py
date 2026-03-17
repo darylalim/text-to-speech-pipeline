@@ -14,7 +14,9 @@ from streamlit_app import (
     generate_speech,
     get_voices,
     load_pipeline,
+    load_tokenizer,
     render_output,
+    tokenize_text,
 )
 
 EXPECTED_LANGUAGES = [
@@ -99,6 +101,54 @@ class TestLoadPipeline:
 
         load_pipeline("a")
         KPipeline.assert_called_with(lang_code="a", repo_id=REPO_ID)  # type: ignore[union-attribute]
+
+
+class TestTokenizeText:
+    def _mock_tokenizer_pipeline(self, phoneme_chunks: list[str]) -> MagicMock:
+        results = []
+        for p in phoneme_chunks:
+            r = MagicMock()
+            r.phonemes = p
+            results.append(r)
+        from kokoro import KPipeline
+
+        KPipeline.return_value = MagicMock(return_value=results)  # type: ignore[union-attribute]
+        return KPipeline.return_value  # type: ignore[union-attribute]
+
+    def test_returns_joined_phonemes(self) -> None:
+        self._mock_tokenizer_pipeline(["hɛlˈoʊ", "wˈɜːld"])
+
+        result = tokenize_text("hello world", "a")
+
+        assert result == "hɛlˈoʊ wˈɜːld"
+
+    def test_single_chunk(self) -> None:
+        self._mock_tokenizer_pipeline(["hɛlˈoʊ"])
+
+        result = tokenize_text("hello", "a")
+
+        assert result == "hɛlˈoʊ"
+
+    def test_skips_empty_phonemes(self) -> None:
+        self._mock_tokenizer_pipeline(["hɛlˈoʊ", "", "wˈɜːld"])
+
+        result = tokenize_text("hello world", "a")
+
+        assert result == "hɛlˈoʊ wˈɜːld"
+
+    def test_returns_empty_for_no_phonemes(self) -> None:
+        self._mock_tokenizer_pipeline([])
+
+        result = tokenize_text("", "a")
+
+        assert result == ""
+
+    def test_load_tokenizer_passes_model_false(self) -> None:
+        from kokoro import KPipeline
+
+        load_tokenizer("a")
+
+        KPipeline.assert_called_with(lang_code="a", model=False)  # type: ignore[union-attribute]
 
 
 class TestGenerateSpeech:
