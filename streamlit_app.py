@@ -1,6 +1,7 @@
 import io
 import os
 import time
+from collections.abc import Generator
 
 os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
 
@@ -51,13 +52,14 @@ def generate_speech(
     voice: str,
     pipeline: KPipeline,
     speed: float = 1.0,
-) -> np.ndarray:
-    chunks = list(pipeline(text, voice=voice, speed=speed))
-    if not chunks:
+) -> Generator[tuple[np.ndarray, str], None, None]:
+    generated = False
+    for result in pipeline(text, voice=voice, speed=speed):
+        if result.audio is not None:
+            generated = True
+            yield result.audio.cpu().numpy().astype(np.float32), result.phonemes or ""
+    if not generated:
         raise ValueError("No audio generated. Check your input text.")
-    # ty cannot infer audio type from KPipeline generator output
-    audio = np.concatenate([c.audio for c in chunks])  # type: ignore[no-matching-overload]
-    return audio.astype(np.float32)
 
 
 def add_to_history(
