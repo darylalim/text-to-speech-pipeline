@@ -210,7 +210,13 @@ speed = st.slider(
 with st.spinner("Loading model..."):
     pipeline = load_pipeline(lang_code)
 
-if st.button("Generate", type="primary"):
+btn_col1, btn_col2 = st.columns(2)
+with btn_col1:
+    generate_clicked = st.button("Generate", type="primary")
+with btn_col2:
+    tokenize_clicked = st.button("Tokenize")
+
+if generate_clicked:
     if not text_input.strip():
         st.warning("Enter text.")
     elif compare_mode and not selected_voices:
@@ -218,26 +224,45 @@ if st.button("Generate", type="primary"):
     else:
         try:
             results = []
-            with st.spinner("Generating speech..."):
-                for v in selected_voices:
-                    start = time.perf_counter()
-                    audio_array = generate_speech(text_input, v, pipeline, speed=speed)
-                    gen_time = round(time.perf_counter() - start, 2)
-                    results.append(
-                        {
-                            "audio": audio_array,
-                            "voice": v,
-                            "text": text_input,
-                            "speed": speed,
-                            "duration": len(audio_array) / SAMPLE_RATE,
-                            "generation_time": gen_time,
-                        }
-                    )
+            for v in selected_voices:
+                start = time.perf_counter()
+                with st.status(f"Generating {v}...", expanded=True) as status:
+                    audio_chunks = []
+                    phoneme_chunks = []
+                    for i, (audio_chunk, phonemes) in enumerate(
+                        generate_speech(text_input, v, pipeline, speed=speed), 1
+                    ):
+                        audio_chunks.append(audio_chunk)
+                        phoneme_chunks.append(phonemes)
+                        st.write(f"Chunk {i}...")
+                    status.update(label=f"{v} complete!", state="complete")
+                gen_time = round(time.perf_counter() - start, 2)
+                audio_array = np.concatenate(audio_chunks)
+                all_phonemes = " ".join(phoneme_chunks)
+                results.append(
+                    {
+                        "audio": audio_array,
+                        "voice": v,
+                        "text": text_input,
+                        "speed": speed,
+                        "duration": len(audio_array) / SAMPLE_RATE,
+                        "generation_time": gen_time,
+                        "phonemes": all_phonemes,
+                    }
+                )
             st.session_state["current_output"] = results
             add_to_history(st.session_state["history"], results)
             st.rerun()
         except Exception as e:
             st.exception(e)
+
+if tokenize_clicked:
+    if not text_input.strip():
+        st.warning("Enter text.")
+    else:
+        phonemes = tokenize_text(text_input, lang_code)
+        with st.expander("Phoneme Tokens", expanded=True):
+            st.code(phonemes)
 
 if st.session_state["current_output"] is not None:
     render_output(st.session_state["current_output"])
