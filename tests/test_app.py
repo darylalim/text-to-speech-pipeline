@@ -85,6 +85,16 @@ class TestSamples:
             for sample in samples:
                 assert len(sample) <= CHAR_LIMIT, f"Sample in '{code}' exceeds limit"
 
+    def test_samples_keys_match_language_values(self) -> None:
+        assert set(SAMPLES.keys()) == set(LANGUAGES.values())
+
+    def test_samples_have_no_leading_trailing_whitespace(self) -> None:
+        for code, samples in SAMPLES.items():
+            for sample in samples:
+                assert sample == sample.strip(), (
+                    f"Sample in '{code}' has leading/trailing whitespace"
+                )
+
 
 class TestGetVoices:
     def test_returns_voices_for_language(self) -> None:
