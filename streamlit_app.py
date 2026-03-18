@@ -1,6 +1,6 @@
 import io
 import os
-import random  # noqa: F401
+import random
 import time
 from collections.abc import Generator
 
@@ -207,11 +207,15 @@ st.title("Text to Speech Pipeline")
 st.write("Generate multilingual speech with Kokoro.")
 
 st.subheader("Text")
+if "sample_text" in st.session_state:
+    st.session_state["text_input"] = st.session_state["sample_text"]
+    del st.session_state["sample_text"]
 text_input = st.text_area(
     "Text",
     placeholder="Enter text...",
     height=200,
     help="Enter text for speech generation.",
+    key="text_input",
 )
 if len(text_input) > CHAR_LIMIT:
     st.caption(
@@ -266,11 +270,15 @@ speed = st.slider(
 with st.spinner("Loading model..."):
     pipeline = load_pipeline(lang_code)
 
-btn_col1, btn_col2 = st.columns(2)
+btn_col1, btn_col2, btn_col3 = st.columns(3)
 with btn_col1:
     generate_clicked = st.button("Generate", type="primary")
 with btn_col2:
     tokenize_clicked = st.button("Tokenize")
+with btn_col3:
+    if st.button("Random Sample"):
+        st.session_state["sample_text"] = random.choice(SAMPLES[lang_code])
+        st.rerun()
 
 if generate_clicked:
     if not text_input.strip():
