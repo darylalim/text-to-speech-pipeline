@@ -44,7 +44,7 @@ uv run streamlit run streamlit_app.py
 
 ### Files
 
-- `streamlit_app.py` — single-file app: text input, language/voice selection, speed control, audio playback, voice comparison, phoneme tokenization, session-based generation history
+- `streamlit_app.py` — single-file app: text input, language/voice selection, speed control, audio playback, voice comparison, phoneme tokenization, sample texts, character limit, session-based generation history
 - `tests/conftest.py` — mocks `streamlit`, `kokoro`, and `huggingface_hub` for import
 - `tests/test_app.py` — unit tests
 
@@ -77,11 +77,13 @@ Voices are discovered dynamically from the HuggingFace Hub (`hexgrad/Kokoro-82M`
 
 ### UI
 
-- Text input (no character limit, live character count)
+- Text input with 5000-character limit (`CHAR_LIMIT`), live character count (red when exceeded)
+- Random Sample button: populates text area with a language-aware sample from `SAMPLES` dict via session state wiring
 - Language selection (9 languages via `LANGUAGES` dict)
 - Voice selector (dynamically populated from HuggingFace Hub)
 - Compare Voices toggle: switches voice selector to multiselect (max 3 voices)
 - Speed slider (0.5–2.0, default 1.0)
+- Three-button row: Generate (primary), Tokenize, Random Sample
 - Chunk-by-chunk generation progress via `st.status` (per-voice in compare mode)
 - Tokenize button: shows phoneme tokens without generating audio (uses model-free pipeline)
 - Phoneme token expander (`st.expander` + `st.code`) below audio output; shared in compare mode
