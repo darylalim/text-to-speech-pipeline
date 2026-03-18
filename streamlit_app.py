@@ -213,7 +213,13 @@ text_input = st.text_area(
     height=200,
     help="Enter text for speech generation.",
 )
-st.caption(f"{len(text_input)} characters")
+if len(text_input) > CHAR_LIMIT:
+    st.caption(
+        f'<span style="color: red">{len(text_input)} / {CHAR_LIMIT} characters</span>',
+        unsafe_allow_html=True,
+    )
+else:
+    st.caption(f"{len(text_input)} / {CHAR_LIMIT} characters")
 
 st.subheader("Voice")
 compare_mode = st.session_state.get("compare_mode", False)
@@ -269,6 +275,8 @@ with btn_col2:
 if generate_clicked:
     if not text_input.strip():
         st.warning("Enter text.")
+    elif len(text_input) > CHAR_LIMIT:
+        st.warning(f"Text exceeds {CHAR_LIMIT} character limit.")
     elif compare_mode and not selected_voices:
         st.warning("Select at least one voice.")
     else:
@@ -310,6 +318,8 @@ if generate_clicked:
 if tokenize_clicked:
     if not text_input.strip():
         st.warning("Enter text.")
+    elif len(text_input) > CHAR_LIMIT:
+        st.warning(f"Text exceeds {CHAR_LIMIT} character limit.")
     else:
         phonemes = tokenize_text(text_input, lang_code)
         with st.expander("Phoneme Tokens", expanded=True):
