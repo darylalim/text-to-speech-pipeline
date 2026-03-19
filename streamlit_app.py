@@ -287,12 +287,7 @@ def load_tokenizer(lang_code: str) -> KPipeline:
 
 
 def tokenize_text(text: str, lang_code: str) -> str:
-    tokenizer = load_tokenizer(lang_code)
-    phonemes = []
-    for result in tokenizer(text):
-        if result.phonemes:
-            phonemes.append(result.phonemes)
-    return " ".join(phonemes)
+    return " ".join(r.phonemes for r in load_tokenizer(lang_code)(text) if r.phonemes)
 
 
 def generate_speech(
