@@ -14,6 +14,7 @@ from streamlit_app import (
     REPO_ID,
     SAMPLE_RATE,
     SAMPLES,
+    _wav_bytes,
     add_to_history,
     generate_speech,
     get_voices,
@@ -333,6 +334,32 @@ class TestAddToHistory:
         add_to_history(history, new)
         assert len(history) == HISTORY_MAX
         assert history[0] is new
+
+
+class TestWavBytes:
+    def test_returns_bytes(self) -> None:
+        audio = np.ones(24000, dtype=np.float32)
+        result = _wav_bytes(audio)
+        assert isinstance(result, bytes)
+
+    def test_returns_valid_wav_header(self) -> None:
+        audio = np.ones(24000, dtype=np.float32)
+        result = _wav_bytes(audio)
+        assert result[:4] == b"RIFF"
+        assert result[8:12] == b"WAVE"
+
+    def test_nonempty_output(self) -> None:
+        audio = np.zeros(100, dtype=np.float32)
+        result = _wav_bytes(audio)
+        assert len(result) > 44  # WAV header is 44 bytes
+
+    def test_sample_rate_in_header(self) -> None:
+        import struct
+
+        audio = np.ones(24000, dtype=np.float32)
+        result = _wav_bytes(audio)
+        rate = struct.unpack_from("<I", result, 24)[0]
+        assert rate == SAMPLE_RATE
 
 
 class TestRenderOutput:
