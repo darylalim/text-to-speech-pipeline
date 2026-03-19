@@ -361,10 +361,8 @@ def render_output(results: list[dict[str, object]]) -> None:
         st.code(results[0].get("phonemes", ""))
 
 
-if "current_output" not in st.session_state:
-    st.session_state["current_output"] = None
-if "history" not in st.session_state:
-    st.session_state["history"] = []
+st.session_state.setdefault("current_output", None)
+st.session_state.setdefault("history", [])
 
 with st.sidebar:
     st.header("Generation History")
@@ -387,8 +385,7 @@ st.write("Generate multilingual speech with Kokoro.")
 
 st.subheader("Text")
 if "sample_text" in st.session_state:
-    st.session_state["text_input"] = st.session_state["sample_text"]
-    del st.session_state["sample_text"]
+    st.session_state["text_input"] = st.session_state.pop("sample_text")
 text_input = st.text_area(
     "Text",
     placeholder="Enter text...",
