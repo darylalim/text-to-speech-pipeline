@@ -315,6 +315,12 @@ def add_to_history(
         history.pop()
 
 
+def _wav_bytes(audio: np.ndarray) -> bytes:
+    buf = io.BytesIO()
+    wavfile.write(buf, SAMPLE_RATE, audio)
+    return buf.getvalue()
+
+
 def render_output(results: list[dict[str, object]]) -> None:
     if not results:
         return
@@ -329,17 +335,13 @@ def render_output(results: list[dict[str, object]]) -> None:
             mc1, mc2 = st.columns(2)
             mc1.metric("Output Duration", f"{result['duration']:.2f}s")
             mc2.metric("Generation Time", f"{result['generation_time']}s")
-            wav_buffer = io.BytesIO()
-            wavfile.write(wav_buffer, SAMPLE_RATE, audio)
             st.download_button(
                 label=f"Download {result['voice']}",
-                data=wav_buffer.getvalue(),
+                data=_wav_bytes(audio),
                 file_name=f"speech_{result['voice']}.wav",
                 mime="audio/wav",
                 key=f"download_{result['voice']}",
             )
-        with st.expander("Phoneme Tokens"):
-            st.code(results[0].get("phonemes", ""))
     else:
         result = results[0]
         audio = np.asarray(result["audio"])
@@ -349,16 +351,14 @@ def render_output(results: list[dict[str, object]]) -> None:
         col2.metric("Input Characters", len(str(result["text"])))
         col3.metric("Output Duration", f"{result['duration']:.2f}s")
         col4.metric("Generation Time", f"{result['generation_time']}s")
-        wav_buffer = io.BytesIO()
-        wavfile.write(wav_buffer, SAMPLE_RATE, audio)
         st.download_button(
             label="Download Audio",
-            data=wav_buffer.getvalue(),
+            data=_wav_bytes(audio),
             file_name="speech.wav",
             mime="audio/wav",
         )
-        with st.expander("Phoneme Tokens"):
-            st.code(result.get("phonemes", ""))
+    with st.expander("Phoneme Tokens"):
+        st.code(results[0].get("phonemes", ""))
 
 
 if "current_output" not in st.session_state:
