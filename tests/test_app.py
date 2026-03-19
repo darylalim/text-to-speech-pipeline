@@ -447,6 +447,19 @@ class TestPronunciationTips:
     def test_is_nonempty_string(self) -> None:
         assert isinstance(PRONUNCIATION_TIPS, str) and len(PRONUNCIATION_TIPS) > 0
 
+    def test_contains_custom_pronunciation_syntax(self) -> None:
+        assert "[word](/phonemes/)" in PRONUNCIATION_TIPS
+
+    def test_contains_intonation_info(self) -> None:
+        assert "Intonation" in PRONUNCIATION_TIPS
+
+    def test_contains_stress_adjustment(self) -> None:
+        assert "[word](-1)" in PRONUNCIATION_TIPS
+        assert "[word](+1)" in PRONUNCIATION_TIPS
+
+    def test_no_leading_trailing_whitespace(self) -> None:
+        assert PRONUNCIATION_TIPS == PRONUNCIATION_TIPS.strip()
+
 
 class TestLongSamples:
     def test_has_all_language_codes(self) -> None:
