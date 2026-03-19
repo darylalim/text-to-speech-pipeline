@@ -9,6 +9,8 @@ Streamlit web app for generating multilingual speech using [Kokoro-82M](https://
 - Voice comparison mode (up to 3 voices side by side)
 - Adjustable speech speed (0.5x–2.0x)
 - Random sample texts per language for quick demos
+- Long literary excerpts for testing sustained narration
+- Pronunciation tips with Kokoro-specific syntax (custom phonemes, stress, intonation)
 - 5000-character input limit with visual indicator
 - In-browser audio playback and WAV download
 - Chunk-by-chunk generation progress (per-voice in compare mode)
