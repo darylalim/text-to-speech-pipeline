@@ -265,15 +265,15 @@ LONG_SAMPLES: dict[str, str] = {
 
 @st.cache_data(ttl=3600)
 def get_voices(lang_code: str) -> list[str]:
-    entries = list_repo_tree(REPO_ID, path_in_repo="voices")
-    voices = []
-    for entry in entries:
-        name = getattr(entry, "rfilename", None)
-        if name is not None and name.endswith(".pt") and name.startswith("voices/"):
-            voice = name.removeprefix("voices/").removesuffix(".pt")
-            if len(voice) >= 2 and voice[0] == lang_code:
-                voices.append(voice)
-    return sorted(voices)
+    return sorted(
+        voice
+        for entry in list_repo_tree(REPO_ID, path_in_repo="voices")
+        if (name := getattr(entry, "rfilename", ""))
+        and name.startswith("voices/")
+        and name.endswith(".pt")
+        and len(voice := name.removeprefix("voices/").removesuffix(".pt")) >= 2
+        and voice[0] == lang_code
+    )
 
 
 @st.cache_resource
