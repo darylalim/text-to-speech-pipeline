@@ -54,6 +54,7 @@ uv run streamlit run streamlit_app.py
 - `load_pipeline` / `load_tokenizer` — cached pipeline (with model) and tokenizer (model-free)
 - `tokenize_text` — returns joined phoneme string without running inference
 - `add_to_history` — manages generation history (max 20 entries, newest first)
+- `_wav_bytes` — converts a NumPy audio array to WAV bytes
 - `render_output` — displays audio player, metrics, download button, phoneme expander
 
 ### Model
