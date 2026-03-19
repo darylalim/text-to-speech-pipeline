@@ -457,7 +457,7 @@ speed = st.slider(
 with st.spinner("Loading model..."):
     pipeline = load_pipeline(lang_code)
 
-btn_col1, btn_col2, btn_col3 = st.columns(3)
+btn_col1, btn_col2, btn_col3, btn_col4 = st.columns(4)
 with btn_col1:
     generate_clicked = st.button("Generate", type="primary")
 with btn_col2:
@@ -465,6 +465,10 @@ with btn_col2:
 with btn_col3:
     if st.button("Random Sample"):
         st.session_state["sample_text"] = random.choice(SAMPLES[lang_code])
+        st.rerun()
+with btn_col4:
+    if st.button("Long Sample"):
+        st.session_state["sample_text"] = LONG_SAMPLES[lang_code]
         st.rerun()
 
 if generate_clicked:
