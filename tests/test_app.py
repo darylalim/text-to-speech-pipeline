@@ -8,6 +8,7 @@ from streamlit_app import (
     CHAR_LIMIT,
     HISTORY_MAX,
     LANGUAGES,
+    LONG_SAMPLES,
     MODEL_NAME,
     PRONUNCIATION_TIPS,
     REPO_ID,
@@ -445,3 +446,38 @@ class TestRenderOutput:
 class TestPronunciationTips:
     def test_is_nonempty_string(self) -> None:
         assert isinstance(PRONUNCIATION_TIPS, str) and len(PRONUNCIATION_TIPS) > 0
+
+
+class TestLongSamples:
+    def test_has_all_language_codes(self) -> None:
+        assert set(LONG_SAMPLES.keys()) == set(LANGUAGES.values())
+
+    def test_each_value_is_nonempty_string(self) -> None:
+        for code, sample in LONG_SAMPLES.items():
+            assert isinstance(sample, str) and len(sample) > 0, (
+                f"Empty or non-string sample in '{code}'"
+            )
+
+    def test_values_are_strings_not_lists(self) -> None:
+        for code, sample in LONG_SAMPLES.items():
+            assert isinstance(sample, str), (
+                f"LONG_SAMPLES['{code}'] should be a string, not {type(sample)}"
+            )
+
+    def test_within_char_limit(self) -> None:
+        for code, sample in LONG_SAMPLES.items():
+            assert len(sample) <= CHAR_LIMIT, (
+                f"Long sample in '{code}' exceeds {CHAR_LIMIT} chars"
+            )
+
+    def test_minimum_length(self) -> None:
+        for code, sample in LONG_SAMPLES.items():
+            assert len(sample) >= 300, (
+                f"Long sample in '{code}' is under 300 chars ({len(sample)})"
+            )
+
+    def test_no_leading_trailing_whitespace(self) -> None:
+        for code, sample in LONG_SAMPLES.items():
+            assert sample == sample.strip(), (
+                f"Long sample in '{code}' has leading/trailing whitespace"
+            )
